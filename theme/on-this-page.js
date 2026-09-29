@@ -1,14 +1,17 @@
 (function () {
+  // Flat, ordered list — matches https://github.com/CornillieJ/sa's guide
+  // nav (section.chapter + data-title, numbered 01/02/...). Our headings
+  // are all one level (h3) in practice, so no depth/indentation to track.
   function headingsToToc(headings) {
     var withIds = headings.filter(function (h) { return h.id; });
     if (withIds.length < 2) return [];
     return withIds.map(function (h) {
-      return { id: h.id, text: h.textContent, depth: h.tagName === 'H3' ? 3 : 2 };
+      return { id: h.id, text: h.textContent };
     });
   }
 
   var activeObserver = null;
-  var NAV_WIDTH = 208; // px, matches .otp-nav's CSS width (13rem)
+  var NAV_WIDTH = 208; // px, matches .toc's CSS width (13rem)
   var GAP = 24; // px, breathing room between the real sidebar/content and this nav
   var MIN_LEFT = 16; // px, don't pin the nav closer than this to the viewport edge
 
@@ -30,18 +33,21 @@
     }
     nav.style.display = '';
     nav.style.left = left + 'px';
-    // mdBook's own top menu bar exists in the DOM even when scrolled out of
-    // view (it reveals itself again on scroll-up) — check where it actually
-    // is, not just whether the element exists.
+    // Sit below both mdBook's own top menu bar (which exists in the DOM
+    // even when scrolled out of view — it reveals itself again on
+    // scroll-up, so check where it actually is, not just whether the
+    // element exists) and this page's own fixed level-tabs bar, if present.
     var menuBar = document.querySelector('#mdbook-menu-bar');
     var menuBarBottom = menuBar ? Math.max(0, menuBar.getBoundingClientRect().bottom) : 0;
-    nav.style.top = (menuBarBottom + 16) + 'px';
+    var tabs = document.querySelector('.level-tabs');
+    var tabsBottom = tabs ? Math.max(0, tabs.getBoundingClientRect().bottom) : 0;
+    nav.style.top = (Math.max(menuBarBottom, tabsBottom) + 16) + 'px';
   }
 
   function build() {
     var main = document.querySelector('#mdbook-content main');
     if (!main) return;
-    var previous = document.body.querySelector('nav.otp-nav');
+    var previous = document.body.querySelector('nav.toc');
     if (previous) previous.remove();
     if (activeObserver) { activeObserver.disconnect(); activeObserver = null; }
 
@@ -50,22 +56,27 @@
       return h.offsetParent !== null;
     });
     var entries = headingsToToc(headingEls.map(function (h) {
-      return { id: h.id, tagName: h.tagName, textContent: h.textContent };
+      return { id: h.id, textContent: h.textContent };
     }));
     if (!entries.length) return;
 
     var nav = document.createElement('nav');
-    nav.className = 'otp-nav';
+    nav.className = 'toc';
+    nav.setAttribute('aria-label', 'Contents');
     var label = document.createElement('div');
-    label.className = 'otp-label';
+    label.className = 'toc-label';
     label.textContent = 'On this page';
     var ol = document.createElement('ol');
-    entries.forEach(function (e) {
+    ol.id = 'tocList';
+    entries.forEach(function (e, i) {
       var li = document.createElement('li');
-      li.setAttribute('data-depth', String(e.depth));
       var a = document.createElement('a');
       a.setAttribute('href', '#' + e.id);
-      a.textContent = e.text;
+      var n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = ('0' + (i + 1)).slice(-2);
+      a.appendChild(n);
+      a.appendChild(document.createTextNode(e.text));
       li.appendChild(a);
       ol.appendChild(li);
     });
@@ -96,7 +107,7 @@
     document.addEventListener('DOMContentLoaded', build);
     document.addEventListener('learn-api:level-changed', build);
     var repositionCurrent = function () {
-      var nav = document.body.querySelector('nav.otp-nav');
+      var nav = document.body.querySelector('nav.toc');
       var main = document.querySelector('#mdbook-content main');
       if (nav && main) reposition(nav, main);
     };

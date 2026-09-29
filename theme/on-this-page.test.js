@@ -2,14 +2,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { headingsToToc } = require('./on-this-page.js');
 
-test('maps h2/h3 headings to toc entries with depth', () => {
+test('maps h2/h3 headings to a flat, ordered toc list', () => {
   const headings = [
     { id: 'intro', tagName: 'H2', textContent: 'Intro' },
     { id: 'detail', tagName: 'H3', textContent: 'Detail' },
   ];
   assert.deepEqual(headingsToToc(headings), [
-    { id: 'intro', text: 'Intro', depth: 2 },
-    { id: 'detail', text: 'Detail', depth: 3 },
+    { id: 'intro', text: 'Intro' },
+    { id: 'detail', text: 'Detail' },
   ]);
 });
 
