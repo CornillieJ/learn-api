@@ -1,0 +1,17 @@
+[book]
+title = "Learning Java for the VWO API"
+authors = ["Jeffrey Cornillie"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+additional-css = ["theme/custom.css"]
+additional-js = [
+    "theme/levels.js",
+    "theme/checkmarks.js",
+    "theme/on-this-page.js",
+    "theme/pace-chooser.js",
+    "theme/layer-explorer.js",
+]
