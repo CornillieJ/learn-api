@@ -9,11 +9,16 @@ default-theme = "rust"
 preferred-dark-theme = "navy"
 site-url = "/learn-api/"
 git-repository-url = "https://github.com/CornillieJ/learn-api"
-additional-css = ["theme/custom.css"]
+additional-css = ["theme/custom.css", "theme/interactive.css"]
 additional-js = [
+    "theme/celebrate.js",
     "theme/levels.js",
     "theme/checkmarks.js",
     "theme/on-this-page.js",
     "theme/pace-chooser.js",
     "theme/layer-explorer.js",
+    "theme/quiz.js",
+    "theme/flashcards.js",
+    "theme/code-compare.js",
+    "theme/progress-map.js",
 ]

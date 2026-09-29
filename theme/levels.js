@@ -66,8 +66,57 @@
       tabs.style.top = menuBarBottom + 'px';
     });
   }
+  // Keyboard 1/2/3 switches level, unless the user is typing or focus is in
+  // a widget that uses its own keys (quiz letters, flashcards).
+  function levelForKey(key) {
+    var i = ['1', '2', '3'].indexOf(key);
+    return i === -1 ? null : LEVELS[i];
+  }
+  function isTypingTarget(el) {
+    if (!el || !el.tagName) return false;
+    var tag = el.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable ||
+      !!(el.closest && el.closest('[data-quiz], [data-flashcards]'));
+  }
+  // How many hands-on items the Drilling level holds.
+  function countDrillItems(root) {
+    var n = 0;
+    root.querySelectorAll('.level.drill').forEach(function (drill) {
+      n += drill.querySelectorAll('ul.checklist > li, details.qa, [data-quiz], [data-flashcards]').length;
+    });
+    return n;
+  }
+  function addDrillCount() {
+    var n = countDrillItems(document);
+    if (!n) return;
+    document.querySelectorAll('[data-levels] button[data-level="drill"]').forEach(function (btn) {
+      if (btn.querySelector('.lt-count')) return;
+      var badge = document.createElement('span');
+      badge.className = 'lt-count';
+      badge.textContent = n;
+      badge.setAttribute('aria-label', n + ' exercises');
+      btn.appendChild(badge);
+    });
+  }
+  function addKeyHints() {
+    document.querySelectorAll('[data-levels] button[data-level]').forEach(function (btn) {
+      var i = LEVELS.indexOf(btn.getAttribute('data-level'));
+      if (i !== -1 && !btn.title) btn.title = 'Shortcut: ' + (i + 1);
+    });
+  }
   function wire() {
     var level = getStoredLevel();
+    addDrillCount();
+    addKeyHints();
+    document.addEventListener('keydown', function (e) {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      var next = levelForKey(e.key);
+      if (!next || !document.querySelector('[data-levels]')) return;
+      setStoredLevel(next);
+      apply(next);
+      positionTabs();
+    });
     apply(level);
     positionTabs();
     window.addEventListener('resize', positionTabs);
@@ -107,6 +156,8 @@
       LEVELS: LEVELS,
       getStoredLevel: getStoredLevel,
       setStoredLevel: setStoredLevel,
+      levelForKey: levelForKey,
+      countDrillItems: countDrillItems,
     };
   }
 })();
