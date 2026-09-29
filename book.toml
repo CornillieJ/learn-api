@@ -5,7 +5,7 @@ language = "en"
 src = "src"
 
 [output.html]
-default-theme = "light"
+default-theme = "rust"
 preferred-dark-theme = "navy"
 additional-css = ["theme/custom.css"]
 additional-js = [
