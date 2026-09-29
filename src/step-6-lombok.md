@@ -59,10 +59,11 @@ builder for construction.
 <summary>Self-check: what does <code>@Getter(onMethod_ = {@Override})</code> generate, and why is <code>@Override</code> needed there?</summary>
 <div class="ans">
 It generates a getter method that also satisfies an interface's
-abstract getter. The interface declares the getter as part of its
-contract, so the implementation Lombok generates for the field must be
-marked <code>@Override</code> to correctly implement that interface
-method rather than merely coincide with its name.
+abstract getter; signature matching alone is what makes it satisfy that
+interface. The <code>@Override</code> passed into the Lombok config is
+a compile-time safety net: it makes the build fail if the generated
+method doesn't actually match the interface method it's meant to
+implement, catching a signature mismatch early instead of at runtime.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>
