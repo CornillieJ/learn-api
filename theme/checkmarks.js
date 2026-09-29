@@ -28,13 +28,13 @@
 
   function currentSlug() { return slugFromHref(location.pathname); }
 
-  function syncSidebar() {
-    document.querySelectorAll('#mdbook-sidebar .chapter-item a[href$=".html"]').forEach(function (a) {
+  function syncSidebarIn(doc) {
+    doc.querySelectorAll('.chapter-item a[href$=".html"]').forEach(function (a) {
       var slug = slugFromHref(a.getAttribute('href'));
       var mark = a.querySelector('.done-mark');
       if (isDone(slug)) {
         if (!mark) {
-          mark = document.createElement('span');
+          mark = doc.createElement('span');
           mark.className = 'done-mark';
           mark.textContent = ' ✓';
           a.appendChild(mark);
@@ -43,6 +43,22 @@
         mark.remove();
       }
     });
+  }
+
+  // Reused reference so repeated syncSidebar() calls cannot stack duplicate listeners.
+  function onSidebarFrameLoad() {
+    try { syncSidebarIn(this.contentDocument); } catch (e) {}
+  }
+
+  // mdBook 0.5 renders the sidebar in a same-origin iframe, not in the chapter document.
+  function syncSidebar() {
+    var iframe = document.querySelector('iframe.sidebar-iframe-outer');
+    if (!iframe) return;
+    iframe.addEventListener('load', onSidebarFrameLoad);
+    try {
+      var doc = iframe.contentDocument;
+      if (doc && doc.querySelector('.chapter-item')) syncSidebarIn(doc);
+    } catch (e) {}
   }
 
   function wireButton() {
