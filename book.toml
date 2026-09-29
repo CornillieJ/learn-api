@@ -7,6 +7,8 @@ src = "src"
 [output.html]
 default-theme = "rust"
 preferred-dark-theme = "navy"
+site-url = "/learn-api/"
+git-repository-url = "https://github.com/CornillieJ/learn-api"
 additional-css = ["theme/custom.css"]
 additional-js = [
     "theme/levels.js",
