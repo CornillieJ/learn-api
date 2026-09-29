@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { headingsToToc, activeIndexFromTops } = require('./on-this-page.js');
+const { headingsToToc, activeIndexFromTops, isAtPageBottom } = require('./on-this-page.js');
 
 test('maps h2/h3 headings to a flat, ordered toc list', () => {
   const headings = [
@@ -37,4 +37,13 @@ test('activeIndexFromTops returns -1 when every heading is still below the line'
 
 test('activeIndexFromTops picks the deepest heading the reader has scrolled past', () => {
   assert.equal(activeIndexFromTops([-400, -50, 90, 500], 160), 2);
+});
+
+test('isAtPageBottom is true once the viewport reaches the end of the document', () => {
+  assert.equal(isAtPageBottom(1000, 900, 1900, 2), true); // 1000+900 == 1900
+  assert.equal(isAtPageBottom(998, 900, 1900, 2), true); // within the 2px tolerance
+});
+
+test('isAtPageBottom is false while more of the page remains below the fold', () => {
+  assert.equal(isAtPageBottom(500, 900, 1900, 2), false);
 });

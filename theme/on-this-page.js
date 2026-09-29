@@ -33,13 +33,25 @@
     return idx;
   }
 
+  // True once the reader has scrolled as far as the page allows. If the
+  // content after the last heading is shorter than one viewport, that
+  // heading can never be scrolled up past TRIGGER_LINE — there's nowhere
+  // left to scroll to — so it would otherwise never activate.
+  function isAtPageBottom(scrollY, viewportHeight, documentHeight, tolerance) {
+    return scrollY + viewportHeight >= documentHeight - tolerance;
+  }
+
   var TRIGGER_LINE = 160; // px from the top of the viewport
+  var BOTTOM_TOLERANCE = 2; // px, rounding slack for isAtPageBottom
   var headingEls = [];
   var tocLis = [];
 
   function updateActive() {
     var tops = headingEls.map(function (h) { return h.getBoundingClientRect().top; });
     var activeIndex = activeIndexFromTops(tops, TRIGGER_LINE);
+    if (tops.length && isAtPageBottom(window.scrollY, window.innerHeight, document.documentElement.scrollHeight, BOTTOM_TOLERANCE)) {
+      activeIndex = tops.length - 1;
+    }
     tocLis.forEach(function (li, i) { li.classList.toggle('active', i === activeIndex); });
   }
 
@@ -155,6 +167,6 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { headingsToToc: headingsToToc, activeIndexFromTops: activeIndexFromTops };
+    module.exports = { headingsToToc: headingsToToc, activeIndexFromTops: activeIndexFromTops, isAtPageBottom: isAtPageBottom };
   }
 })();
