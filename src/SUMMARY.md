@@ -1,7 +1,5 @@
 # Summary
 
-Learning Java for the VWO API
-
 # Learning Path
 
 - [How to Use This Guide](how-to-use-this-guide.md)
@@ -10,8 +8,8 @@ Learning Java for the VWO API
 - [Step 3: Spring Core, MVC & WAR Deployment](step-3-spring-mvc-war.md)
 - [Step 4: Persistence, Hibernate & HQL](step-4-persistence-hibernate.md)
 - [Step 5: Spring Security](step-5-spring-security.md)
-- [Step 6: Lombok](step-6-lombok.md)
-- [Step 7: Ecosystem & Audio](step-7-ecosystem-audio.md)
+- [Step 6: Lombok (why the code has almost no getters/setters)](step-6-lombok.md)
+- [Step 7: Keeping Your Ear on the Ecosystem (Audio)](step-7-ecosystem-audio.md)
 - [Cheat Sheet: Concept → File Map](cheat-sheet.md)
 - [Tips: .NET → Java / Spring](tips-dotnet-to-java.md)
 - [Tips: Learning Any New Stack](tips-learning-new-stack.md)
