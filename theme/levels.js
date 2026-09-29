@@ -47,9 +47,34 @@
   function hashId(hash) {
     try { return decodeURIComponent((hash || '').slice(1)); } catch (e) { return (hash || '').slice(1); }
   }
+  // The tabs bar is `position: fixed` (see custom.css for why: mdBook's own
+  // #mdbook-content wrapper breaks position:sticky). Match it to the
+  // content column's own left/width so it reads as part of the page rather
+  // than an overlay, and re-run whenever that column's geometry can change.
+  function positionTabs() {
+    var main = document.querySelector('#mdbook-content main');
+    if (!main) return;
+    var rect = main.getBoundingClientRect();
+    // mdBook's own top menu bar exists in the DOM even when scrolled out of
+    // view (it reveals itself again on scroll-up) — check where it actually
+    // is, not just whether the element exists.
+    var menuBar = document.querySelector('#mdbook-menu-bar');
+    var menuBarBottom = menuBar ? Math.max(0, menuBar.getBoundingClientRect().bottom) : 0;
+    document.querySelectorAll('[data-levels]').forEach(function (tabs) {
+      tabs.style.left = rect.left + 'px';
+      tabs.style.width = rect.width + 'px';
+      tabs.style.top = menuBarBottom + 'px';
+    });
+  }
   function wire() {
     var level = getStoredLevel();
     apply(level);
+    positionTabs();
+    window.addEventListener('resize', positionTabs);
+    window.addEventListener('scroll', positionTabs, { passive: true });
+    if ('MutationObserver' in window) {
+      new MutationObserver(positionTabs).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    }
     if (revealTarget(hashId(location.hash))) {
       document.getElementById(hashId(location.hash)).scrollIntoView();
     }

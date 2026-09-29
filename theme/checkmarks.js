@@ -48,6 +48,11 @@
   function wireButton() {
     var btn = document.querySelector('[data-mark-done]');
     if (!btn) return;
+    // Relocate into the sticky level-tabs bar so it's reachable regardless
+    // of scroll position or which level (Overview/Deep/Drilling) is active,
+    // instead of sitting buried at the bottom of the Drilling level only.
+    var tabs = document.querySelector('.level-tabs');
+    if (tabs) tabs.appendChild(btn);
     var slug = currentSlug();
     function render() {
       var done = isDone(slug);

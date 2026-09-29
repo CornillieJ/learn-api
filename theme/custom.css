@@ -34,21 +34,32 @@ h1, h2, h3 { color: var(--cyan) !important; }
 .qa.known { border-color: var(--teal); }
 .qa.known .mark button { background: var(--teal); color: white; border-color: var(--teal); }
 
-.level-tabs { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
+/* mdBook's own #mdbook-content wrapper has overflow:auto but never actually
+   scrolls (the real page scroll happens on <html>), which breaks
+   position:sticky here (it would pin to that non-scrolling ancestor
+   instead of the viewport). Fixed positioning, computed in JS to match
+   the content column's own left/width, sidesteps that entirely. */
+.level-tabs {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  position: fixed; z-index: 50;
+  padding: 0.75rem 0;
+  background: var(--bg); border-bottom: 1px solid var(--sidebar-non-existant, #ccc);
+}
+/* Reserve the space the fixed bar no longer occupies in normal flow. */
+.level-tabs ~ .level { margin-top: 4.25rem; }
 .level-tabs button { border: 1px solid var(--sidebar-non-existant, #ccc); background: transparent; border-radius: 999px; padding: 0.35rem 0.9rem; cursor: pointer; font-size: 0.85rem; }
 .level-tabs button[aria-pressed="true"] { background: var(--pink); border-color: var(--pink); color: white; font-weight: 600; }
 
 .done-mark { color: var(--teal); font-weight: 700; }
-[data-mark-done] { border: 1px solid var(--teal); background: transparent; border-radius: 999px; padding: 0.4rem 1rem; cursor: pointer; margin-top: 1rem; }
+[data-mark-done] { border: 1px solid var(--teal); background: transparent; border-radius: 999px; padding: 0.35rem 0.9rem; cursor: pointer; font-size: 0.85rem; margin-left: auto; }
 [data-mark-done][aria-pressed="true"] { background: var(--teal); color: white; }
 
-.otp-nav { position: sticky; top: 2rem; float: right; width: 12rem; margin-left: 1.5rem; font-size: 0.8rem; }
+.otp-nav { position: fixed; width: 13rem; font-size: 0.8rem; max-height: calc(100vh - 6rem); overflow-y: auto; }
 .otp-label { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.68rem; color: var(--icons, #888); margin-bottom: 0.5rem; }
 .otp-nav ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--sidebar-non-existant, #ccc); }
 .otp-nav li { padding-left: 0.7rem; }
 .otp-nav li[data-depth="3"] { padding-left: 1.4rem; }
 .otp-nav li.active a { color: var(--pink); font-weight: 600; }
-@media (max-width: 900px) { .otp-nav { display: none; } }
 
 .pace-chooser { border: 1px solid var(--sidebar-non-existant, #ccc); border-radius: 10px; padding: 1rem 1.2rem; margin: 1.2rem 0; }
 .pc-row { display: grid; grid-template-columns: 10rem 1fr 4rem; gap: 0.6rem; align-items: center; margin-bottom: 0.5rem; }
