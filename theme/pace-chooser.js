@@ -20,26 +20,27 @@
     while (remaining.length && weekIndex <= weeksAvailable) {
       var budget = hoursPerWeek;
       var focus = [];
-      while (remaining.length && (budget > 0 || focus.length === 0)) {
+      while (remaining.length && budget > 0) {
         var next = remaining[0];
         focus.push(next.label);
         budget -= next.hours;
         remaining.shift();
-        if (budget <= 0) break;
       }
       weeks.push({ week: weekIndex, focus: focus });
       weekIndex++;
     }
     var warning = null;
-    if (remaining.length) {
-      var shortfall = TOTAL_HOURS - capacityHours;
-      warning = 'At ' + hoursPerWeek + 'h/week you will not reach "' + remaining[0].label + '" within ' + weeksAvailable + ' week(s) — add about ' + Math.ceil(shortfall) + 'h more capacity or extend the timeline.';
+    var shortfall = TOTAL_HOURS - capacityHours;
+    if (shortfall > 0) {
+      warning = 'At ' + hoursPerWeek + 'h/week for ' + weeksAvailable + ' week(s) you have ' + capacityHours + 'h, but the path needs ' + TOTAL_HOURS + 'h. Add about ' + Math.ceil(shortfall) + 'h more by raising your weekly hours or extending the timeline.';
+    } else if (remaining.length) {
+      warning = 'The plan runs out of weeks before "' + remaining[0].label + '". Spread the same hours over more weeks, or raise your weekly hours.';
     }
     return { weeks: weeks, totalHours: TOTAL_HOURS, capacityHours: capacityHours, warning: warning };
   }
 
-  function render(result) {
-    var el = document.querySelector('.pace-chooser .pc-result');
+  function render(widget, result) {
+    var el = widget.querySelector('.pc-result');
     if (!el) return;
     if (!result.weeks.length && !result.warning) { el.innerHTML = ''; return; }
     var html = '';
@@ -59,7 +60,7 @@
       var result = computeSchedule({ hoursPerWeek: +hours.value, weeksAvailable: +weeks.value });
       widget.querySelectorAll('output')[0].textContent = hours.value + 'h';
       widget.querySelectorAll('output')[1].textContent = weeks.value + ' wk';
-      render(result);
+      render(widget, result);
     }
     hours.addEventListener('input', run);
     weeks.addEventListener('input', run);

@@ -16,6 +16,13 @@ test('warns when capacity is below the total hours needed', () => {
   assert.match(result.warning, /week/);
 });
 
+test('warns at the widget defaults, where every step still gets scheduled', () => {
+  const result = computeSchedule({ hoursPerWeek: 4, weeksAvailable: 4 });
+  assert.equal(result.capacityHours, 16);
+  assert.ok(result.warning, 'capacity of 16h against 25h of work must warn');
+  assert.match(result.warning, /9h more/);
+});
+
 test('produces no warning and a full week-by-week plan when capacity covers everything', () => {
   const result = computeSchedule({ hoursPerWeek: 10, weeksAvailable: 4 });
   assert.equal(result.warning, null);
