@@ -10,7 +10,39 @@
     });
   }
 
-  var activeObserver = null;
+  // Given each heading's current top position (viewport px, in document
+  // order) and a trigger line, returns the index of the last heading at or
+  // above that line — i.e. "which section the reader is currently in."
+  // Returns -1 if every heading is still below the line.
+  //
+  // This is deliberately NOT an IntersectionObserver watching the headings
+  // themselves: sa's guide (https://github.com/CornillieJ/sa) observes
+  // whole `section.chapter` blocks, which are tall enough to overlap its
+  // trigger band no matter where a reader lands. Our headings are single
+  // thin lines (~25px) — a click-triggered jump lands one at/near the very
+  // top of the viewport, which never overlaps a band that starts lower
+  // down, so the equivalent IntersectionObserver setup never fires on
+  // click, only on some later manual scroll. A threshold crossing-point
+  // check has no minimum-height requirement and is correct immediately
+  // after a click as well as during an ordinary scroll.
+  function activeIndexFromTops(tops, threshold) {
+    var idx = -1;
+    for (var i = 0; i < tops.length; i++) {
+      if (tops[i] <= threshold) idx = i; else break;
+    }
+    return idx;
+  }
+
+  var TRIGGER_LINE = 160; // px from the top of the viewport
+  var headingEls = [];
+  var tocLis = [];
+
+  function updateActive() {
+    var tops = headingEls.map(function (h) { return h.getBoundingClientRect().top; });
+    var activeIndex = activeIndexFromTops(tops, TRIGGER_LINE);
+    tocLis.forEach(function (li, i) { li.classList.toggle('active', i === activeIndex); });
+  }
+
   var NAV_WIDTH = 208; // px, matches .toc's CSS width (13rem)
   var GAP = 24; // px, breathing room between the real sidebar/content and this nav
   var MIN_LEFT = 16; // px, don't pin the nav closer than this to the viewport edge
@@ -49,13 +81,14 @@
     if (!main) return;
     var previous = document.body.querySelector('nav.toc');
     if (previous) previous.remove();
-    if (activeObserver) { activeObserver.disconnect(); activeObserver = null; }
+    headingEls = [];
+    tocLis = [];
 
     // offsetParent is null for headings hidden inside a non-active level tab
-    var headingEls = Array.prototype.slice.call(main.querySelectorAll('h2, h3')).filter(function (h) {
+    var visibleHeadingEls = Array.prototype.slice.call(main.querySelectorAll('h2, h3')).filter(function (h) {
       return h.offsetParent !== null;
     });
-    var entries = headingsToToc(headingEls.map(function (h) {
+    var entries = headingsToToc(visibleHeadingEls.map(function (h) {
       return { id: h.id, textContent: h.textContent };
     }));
     if (!entries.length) return;
@@ -79,28 +112,14 @@
       a.appendChild(document.createTextNode(e.text));
       li.appendChild(a);
       ol.appendChild(li);
+      headingEls.push(document.getElementById(e.id));
+      tocLis.push(li);
     });
     nav.appendChild(label);
     nav.appendChild(ol);
     document.body.appendChild(nav);
     reposition(nav, main);
-
-    if ('IntersectionObserver' in window) {
-      var links = {};
-      Array.prototype.slice.call(ol.querySelectorAll('li')).forEach(function (li) {
-        links[li.querySelector('a').getAttribute('href').slice(1)] = li;
-      });
-      activeObserver = new IntersectionObserver(function (entriesObserved) {
-        entriesObserved.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            Object.keys(links).forEach(function (k) { links[k].classList.remove('active'); });
-            var match = links[entry.target.id];
-            if (match) match.classList.add('active');
-          }
-        });
-      }, { rootMargin: '-20% 0px -70% 0px' });
-      headingEls.forEach(function (h) { if (h.id) activeObserver.observe(h); });
-    }
+    updateActive();
   }
 
   if (typeof document !== 'undefined') {
@@ -112,7 +131,22 @@
       if (nav && main) reposition(nav, main);
     };
     window.addEventListener('resize', repositionCurrent);
+    window.addEventListener('resize', updateActive);
     window.addEventListener('scroll', repositionCurrent, { passive: true });
+    window.addEventListener('scroll', updateActive, { passive: true });
+    // Clicking a toc/sidebar link to a same-page #fragment moves the
+    // reader without necessarily firing a 'scroll' event our listener
+    // above can react to in time — same underlying issue levels.js's
+    // revealTarget works around for level-switching. Recompute directly
+    // once the browser's own jump has settled.
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href*="#"]');
+      if (!a || a.pathname !== location.pathname) return;
+      setTimeout(updateActive, 0);
+    });
+    window.addEventListener('hashchange', function () {
+      setTimeout(updateActive, 0);
+    });
     // mdBook toggles a class on <html> when the reader opens/closes its own
     // chapter sidebar; that changes how much room is left for this nav.
     if ('MutationObserver' in window) {
@@ -121,6 +155,6 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { headingsToToc: headingsToToc };
+    module.exports = { headingsToToc: headingsToToc, activeIndexFromTops: activeIndexFromTops };
   }
 })();
