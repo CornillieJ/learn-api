@@ -21,6 +21,7 @@
     document.querySelectorAll('.level').forEach(function (el) {
       el.style.display = el.classList.contains(level) ? '' : 'none';
     });
+    document.dispatchEvent(new CustomEvent('learn-api:level-changed', { detail: { level: level } }));
   }
   function wire() {
     var level = getStoredLevel();
