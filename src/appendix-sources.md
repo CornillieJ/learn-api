@@ -1,5 +1,15 @@
 # Appendix: Sources & Verification Status
 
+Every external resource in this guide, with what was actually checked.
+
+- ✅ opened and read; the claims in the guide come from the page itself.
+- 🔎 title and channel/author confirmed (e.g. via search or metadata); content not reviewed.
+- ⚠️ could not be read (403, empty render) or not opened; treat as a lead, not a source.
+
+The mental-model sections, quizzes and flashcards are general Java 17 /
+Spring 5.3 / Boot 2.7 / Hibernate 5.6 / Spring Security 5.7 knowledge
+plus repo facts from the Knowledge File; they don't cite a source row.
+
 <div class="table-wrap">
 
 | # | Source | Type | Status |

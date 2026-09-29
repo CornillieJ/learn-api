@@ -33,3 +33,12 @@ test('finds the level a hidden block belongs to from its classes', () => {
   assert.equal(levelFromClasses(['level', 'drill']), 'drill');
   assert.equal(levelFromClasses(['level']), null);
 });
+
+test('number keys 1/2/3 map to the three levels, anything else to null', () => {
+  const { levelForKey } = require('./levels.js');
+  assert.equal(levelForKey('1'), 'overview');
+  assert.equal(levelForKey('2'), 'deep');
+  assert.equal(levelForKey('3'), 'drill');
+  assert.equal(levelForKey('4'), null);
+  assert.equal(levelForKey('a'), null);
+});

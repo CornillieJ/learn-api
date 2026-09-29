@@ -22,3 +22,18 @@ test('detailFor returns the files view when asked', () => {
 test('detailFor returns null for an unknown layer id', () => {
   assert.equal(detailFor(LAYERS, 'nope', 'annotations'), null);
 });
+
+test('every layer carries a C# equivalent and a trace line', () => {
+  for (const l of LAYERS) {
+    assert.ok(l.csharp && l.csharpShort && l.trace, l.id);
+  }
+  assert.match(LAYERS.find((l) => l.id === 'hibernate').csharpShort, /EF Core/);
+});
+
+test('codeify wraps annotations and file names in <code> and escapes HTML', () => {
+  const { codeify } = require('./layer-explorer.js');
+  const html = codeify('@Entity in ScholenDaoImpl.java returns Optional<Scholen>');
+  assert.match(html, /<code>@Entity<\/code>/);
+  assert.match(html, /<code>ScholenDaoImpl\.java<\/code>/);
+  assert.match(html, /Optional&lt;Scholen&gt;/);
+});

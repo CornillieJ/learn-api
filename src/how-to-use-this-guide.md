@@ -12,16 +12,28 @@ era. Material for Boot 3/4 teaches <code>jakarta.*</code>, Spring 6/7 and
 Hibernate 6, which will not match this code.
 </div>
 
-Every step below mixes video/audio with written articles (📖) and ends
-with a **Project exercise** on the real code. Each Step chapter has three
-levels; pick one with the tabs at the top of the page, and your choice is
-remembered as you move between chapters:
+Every step mixes video/audio with written articles (📖) and ends with
+work on the real code. Each Step chapter has three levels; pick one with
+the tabs at the top of the page, and your choice is remembered as you
+move between chapters:
 
-- **Overview**: one paragraph on what the step is and why it matters here.
-- **Deep Understanding**: the full resource list, with each source's
-  verification status and how it maps onto this codebase.
-- **Drilling**: the hands-on project exercise, turned into a checklist,
-  plus a self-check question.
+- **Overview**: why the step matters here, what you can do afterwards,
+  and a side-by-side C# → Java compare.
+- **Deep Understanding**: the resources with their verification status,
+  how each maps onto this codebase, and the mental-model shifts and
+  gotchas that trip .NET developers.
+- **Drilling**: tasks on the repo, quizzes, a small flashcard deck and
+  self-checks. Finish with **Mark this step done**.
+
+<div class="callout rule">
+<div class="callout-label">A loop that works</div>
+
+1. Read the **Overview** and say out loud what you expect to be different from .NET.
+2. Work through **Deep Understanding** with the repo open next to it.
+3. Do the **Drilling** tasks in the repo, then the quizzes *without* scrolling back up.
+4. Anything you got wrong goes on a sticky note; re-test it tomorrow with the [Flashcards](flashcards.md).
+
+</div>
 
 ## How much time will this take?
 

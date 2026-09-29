@@ -1,5 +1,7 @@
 # Summary
 
+[Start Here](README.md)
+
 # Learning Path
 
 - [How to Use This Guide](how-to-use-this-guide.md)
@@ -10,7 +12,12 @@
 - [Step 5: Spring Security](step-5-spring-security.md)
 - [Step 6: Lombok (why the code has almost no getters/setters)](step-6-lombok.md)
 - [Step 7: Keeping Your Ear on the Ecosystem (Audio)](step-7-ecosystem-audio.md)
-- [Cheat Sheet: Concept → File Map](cheat-sheet.md)
+- [Final Challenge](final-challenge.md)
+
+# Reference & Practice
+
+- [Cheat Sheet: Concept → File Map & C# ↔ Java](cheat-sheet.md)
+- [Flashcards: C# → Java](flashcards.md)
 - [Tips: .NET → Java / Spring](tips-dotnet-to-java.md)
 - [Tips: Learning Any New Stack](tips-learning-new-stack.md)
 - [Tips: Entering a Legacy Codebase](tips-legacy-codebase.md)

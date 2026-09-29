@@ -26,6 +26,15 @@
     try { localStorage.setItem(knownKey(slug, index), known ? '1' : '0'); } catch (e) {}
   }
 
+  var STEP_SLUGS = [
+    'step-1-java-syntax', 'step-2-maven', 'step-3-spring-mvc-war', 'step-4-persistence-hibernate',
+    'step-5-spring-security', 'step-6-lombok', 'step-7-ecosystem-audio',
+  ];
+
+  function countDoneSteps() {
+    return STEP_SLUGS.filter(isDone).length;
+  }
+
   function currentSlug() { return slugFromHref(location.pathname); }
 
   function syncSidebar() {
@@ -60,9 +69,21 @@
       btn.textContent = done ? '✓ Marked done' : 'Mark this step done';
     }
     btn.addEventListener('click', function () {
-      setDone(slug, !isDone(slug));
+      var nowDone = !isDone(slug);
+      setDone(slug, nowDone);
       render();
       syncSidebar();
+      document.dispatchEvent(new CustomEvent('learn-api:done-changed', { detail: { slug: slug, done: nowDone } }));
+      if (nowDone) {
+        btn.classList.remove('just-done');
+        void btn.offsetWidth;
+        btn.classList.add('just-done');
+        var api = window.LearnApi;
+        var count = countDoneSteps();
+        if (api && api.celebrate) {
+          api.celebrate(btn, { message: count === STEP_SLUGS.length ? 'All 7 steps done. You finished the path!' : 'Step done! ' + count + ' of ' + STEP_SLUGS.length + ' steps complete.', count: count === STEP_SLUGS.length ? 160 : 80 });
+        }
+      }
     });
     render();
   }
@@ -105,6 +126,8 @@
       setDone: setDone,
       isKnown: isKnown,
       setKnown: setKnown,
+      STEP_SLUGS: STEP_SLUGS,
+      countDoneSteps: countDoneSteps,
     };
   }
 })();
