@@ -1,19 +1,41 @@
 # Tips: Learning Any New Stack
 
-Collected from web searches; each source's status is marked. Every tip ends with a note on how it applies to this project.
+Seven principles, each turned into something you do this week.
 
-Sources: [How to Learn a New Language or Framework: Tips and Strategies, DEV (nathlowe)](https://dev.to/nathlowe/how-to-learn-a-new-language-or-framework-tips-and-strategies-1d5f) ✅ · [10 ways to learn a new technology, Java67](https://www.java67.com/2017/12/10-ways-to-learn-new-technology-programming-language-or-framework.html) ⚠️ not read.
+1. **Set a concrete objective.**
+   **Yours:** "I can trace and safely change one endpoint end-to-end in
+   `vwo-api`." The [Final Challenge](final-challenge.md) is that objective
+   as an exercise.
 
-1. **Set a concrete objective** (project, job task, upskilling). → *Objective:* "I can trace and safely change one endpoint end-to-end in `vwo-api`."
+2. **Learn through a real project, not passive watching.**
+   **Do this:** never watch a video without the repo open; every step's
+   Drilling level gives you the repo task.
 
-2. **Learn through a real project, not passive watching.** → Every step in the learning path ends in a repo exercise.
+3. **Combine resources:** docs, courses, books, community.
+   **Do this:** pair each video with the official 5.3 / 5.6 / 5.7 docs
+   linked in Steps 3-5, and the Knowledge File.
 
-3. **Combine resources:** docs, courses, books, community. → Videos plus the official 5.3/5.6/5.7 docs plus the Knowledge File.
+4. **Concepts before syntax.** *Why and how* matters more than memorised
+   annotations.
+   **Do this:** make sure you can explain DI scopes, proxies, transactions
+   and the servlet lifecycle; look annotations up as needed.
 
-4. **Concepts before syntax:** *why and how* to use a framework matters more than memorised syntax. → Understand DI, transactions, the servlet lifecycle first; look up annotations as needed.
+5. **Practise in small, frequent sessions.**
+   **Do this:** 30-45 minutes a day tracing one endpoint beats a weekend
+   cram. Five flashcards before each session.
 
-5. **Practise consistently in small sessions.** → 30-45 min/day tracing one endpoint beats a weekend cram.
+6. **Understand architecture, not just syntax.** It's what separates
+   proficient from beginner (the DEV article's own example is SSR vs SSG
+   in Next.js).
+   **Do this:** be able to sketch the WAR/Tomcat model, the two
+   SessionFactories and the shared-interface controllers from memory.
 
-6. **Understand architecture, not just syntax:** what separates proficient from beginner (the DEV article's own example is SSR vs SSG in Next.js). → *This project:* the "architecture" is the WAR/Tomcat model, two SessionFactories, the shared-interface controllers.
+7. **Read others' code critically, write tests, prefer official docs.**
+   (Search summaries, snippet-level; not independently checked.)
+   **Do this:** the repo has no tests. A small JUnit test around one DAO or
+   repository method against a dev DB is both a learning exercise and real
+   value.
 
-7. Search summaries also recommend reading others' code critically, writing tests, and preferring official docs (snippet-level; not independently checked). → The repo has no tests; a small test around one DAO/repository method against a dev DB is both a learning exercise and real value.
+## Sources
+
+[How to Learn a New Language or Framework: Tips and Strategies, DEV (nathlowe)](https://dev.to/nathlowe/how-to-learn-a-new-language-or-framework-tips-and-strategies-1d5f) ✅ · [10 ways to learn a new technology, Java67](https://www.java67.com/2017/12/10-ways-to-learn-new-technology-programming-language-or-framework.html) ⚠️ not read.
