@@ -26,3 +26,10 @@ test('falls back to overview and never throws when localStorage is unavailable',
   assert.equal(getStoredLevel(), 'overview');
   global.localStorage = original;
 });
+
+test('finds the level a hidden block belongs to from its classes', () => {
+  const { levelFromClasses } = require('./levels.js');
+  assert.equal(levelFromClasses(['level', 'deep']), 'deep');
+  assert.equal(levelFromClasses(['level', 'drill']), 'drill');
+  assert.equal(levelFromClasses(['level']), null);
+});
