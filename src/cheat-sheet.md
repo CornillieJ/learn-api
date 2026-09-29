@@ -21,4 +21,4 @@
 No verified resource was found for JWT with jjwt 0.9 or springdoc-openapi 1.x. Read the code (<code>security/jwt/JWTTokenService.java</code>, <code>restAPI/OpenApiApplication.java</code>) with Knowledge File §10 and §11 instead of trusting a link that hasn't been opened.
 </div>
 
-See the interactive layer breakdown in [Step 3](step-3-spring-mvc-war.md#L).
+See the interactive layer breakdown in [Step 3](step-3-spring-mvc-war.md).
