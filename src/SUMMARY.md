@@ -8,7 +8,7 @@ Learning Java for the VWO API
 - [Step 1: Java Syntax, Fast (from C#)](step-1-java-syntax.md)
 - [Step 2: Maven](step-2-maven.md)
 - [Step 3: Spring Core, MVC & WAR Deployment](step-3-spring-mvc-war.md)
-- [Step 4: Persistence — Hibernate & HQL](step-4-persistence-hibernate.md)
+- [Step 4: Persistence, Hibernate & HQL](step-4-persistence-hibernate.md)
 - [Step 5: Spring Security](step-5-spring-security.md)
 - [Step 6: Lombok](step-6-lombok.md)
 - [Step 7: Ecosystem & Audio](step-7-ecosystem-audio.md)
