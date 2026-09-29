@@ -33,3 +33,7 @@ h1, h2, h3 { color: var(--cyan) !important; }
 .qa .mark button { border: 1px solid var(--sidebar-non-existant, #ccc); background: transparent; border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.78rem; cursor: pointer; }
 .qa.known { border-color: var(--teal); }
 .qa.known .mark button { background: var(--teal); color: white; border-color: var(--teal); }
+
+.level-tabs { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
+.level-tabs button { border: 1px solid var(--sidebar-non-existant, #ccc); background: transparent; border-radius: 999px; padding: 0.35rem 0.9rem; cursor: pointer; font-size: 0.85rem; }
+.level-tabs button[aria-pressed="true"] { background: var(--pink); border-color: var(--pink); color: white; font-weight: 600; }
