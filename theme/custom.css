@@ -1,0 +1,35 @@
+:root {
+  --pink: #EC008C;
+  --cyan: #44C8F5;
+  --teal: #26A99E;
+  --yellow: #FFD400;
+}
+
+.part-title, .menu-title, strong:not(th strong):not(td strong) {
+  color: var(--pink) !important;
+}
+
+h1, h2, h3 { color: var(--cyan) !important; }
+
+.table-wrap { overflow-x: auto; margin: 1rem 0; }
+.table-wrap table { width: 100%; border-collapse: collapse; }
+.table-wrap thead { background: var(--cyan); color: white; }
+.table-wrap th, .table-wrap td { padding: 0.5rem 0.8rem; border: 1px solid var(--sidebar-non-existant, #ccc); text-align: left; }
+
+.callout { border-radius: 8px; padding: 0.8rem 1rem; margin: 1rem 0; border: 1px solid var(--sidebar-non-existant, #ccc); background: var(--theme-hover, #f5f5f5); }
+.callout-label { font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+.callout.setup { border-color: var(--yellow); }
+.callout.note { border-color: var(--cyan); }
+.callout.rule { border-color: var(--teal); }
+.callout.danger { border-color: #c0392b; }
+
+.checklist { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: 0.4rem; }
+.checklist label { display: flex; gap: 0.6rem; align-items: flex-start; border: 1px solid var(--sidebar-non-existant, #ccc); border-radius: 8px; padding: 0.5rem 0.75rem; cursor: pointer; }
+.checklist input:checked + span { text-decoration: line-through; opacity: 0.7; }
+
+.qa { border: 1px solid var(--sidebar-non-existant, #ccc); border-radius: 8px; margin-bottom: 0.5rem; }
+.qa summary { cursor: pointer; padding: 0.6rem 0.8rem; font-weight: 600; }
+.qa .ans { padding: 0 0.8rem 0.7rem; }
+.qa .mark button { border: 1px solid var(--sidebar-non-existant, #ccc); background: transparent; border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.78rem; cursor: pointer; }
+.qa.known { border-color: var(--teal); }
+.qa.known .mark button { background: var(--teal); color: white; border-color: var(--teal); }
