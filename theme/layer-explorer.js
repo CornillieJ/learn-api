@@ -7,7 +7,7 @@
       annotations: '@Repository, @Transactional(value = transactionR|transactionRW), constructor @Autowired',
       files: '*RepositoryImpl, e.g. ScholenRepositoryImpl.java' },
     { id: 'dao', label: 'DAO',
-      annotations: 'Hand-written HQL via Session.createQuery(...) — not Spring Data JPA',
+      annotations: 'Hand-written HQL via Session.createQuery(...), not Spring Data JPA',
       files: 'dao/impl/*DaoImpl.java, e.g. ScholenDaoImpl.java' },
     { id: 'hibernate', label: 'Hibernate / DB',
       annotations: '@Entity, @Table, @Id / @IdClass, native Hibernate SessionFactory',
