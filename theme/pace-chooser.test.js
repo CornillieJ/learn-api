@@ -26,3 +26,15 @@ test('produces no warning and a full week-by-week plan when capacity covers ever
 test('TOTAL_HOURS matches the sum of the step budgets', () => {
   assert.equal(TOTAL_HOURS, 25);
 });
+
+test('rejects NaN input without producing NaN in output', () => {
+  const resultNaNHours = computeSchedule({ hoursPerWeek: NaN, weeksAvailable: 3 });
+  assert.deepEqual(resultNaNHours.weeks, []);
+  assert.equal(resultNaNHours.capacityHours, 0);
+  assert.match(resultNaNHours.warning, /positive/);
+
+  const resultNaNWeeks = computeSchedule({ hoursPerWeek: 5, weeksAvailable: NaN });
+  assert.deepEqual(resultNaNWeeks.weeks, []);
+  assert.equal(resultNaNWeeks.capacityHours, 0);
+  assert.match(resultNaNWeeks.warning, /positive/);
+});

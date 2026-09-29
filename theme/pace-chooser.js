@@ -10,7 +10,7 @@
 
   function computeSchedule(input) {
     var hoursPerWeek = input.hoursPerWeek, weeksAvailable = input.weeksAvailable;
-    if (hoursPerWeek <= 0 || weeksAvailable <= 0) {
+    if (!(hoursPerWeek > 0) || !(weeksAvailable > 0)) {
       return { weeks: [], totalHours: TOTAL_HOURS, capacityHours: 0, warning: 'Enter a positive number of hours and weeks.' };
     }
     var capacityHours = hoursPerWeek * weeksAvailable;
