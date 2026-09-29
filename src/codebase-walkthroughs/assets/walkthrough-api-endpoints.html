@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: dark">
+<head>
+<meta charset="UTF-8">
+<title>API Endpoint Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { colors: {
+      wt: {
+        bg: '#000000', surface: '#0a0a0a', raised: '#141414',
+        border: '#2a2a2a', fg: '#ffffff', muted: '#a0a0a0',
+        accent: '#a855f7', file: '#c084fc', red: '#ef4444',
+      },
+    }}},
+  };
+</script>
+<style>
+  html, body { background:#000000; margin:0; padding:0; color-scheme: dark; }
+  ::selection { background: rgba(168,85,247,.35); }
+  .badge { display:inline-flex; align-items:center; padding:1px 7px; border-radius:5px; font-size:.68rem; font-weight:600; letter-spacing:.02em; white-space:nowrap; }
+  .m-GET { background:rgba(52,211,153,.15); color:#34d399; border:1px solid rgba(52,211,153,.3); }
+  .m-POST { background:rgba(96,165,250,.15); color:#60a5fa; border:1px solid rgba(96,165,250,.3); }
+  .m-PUT { background:rgba(251,191,36,.15); color:#fbbf24; border:1px solid rgba(251,191,36,.3); }
+  .m-DELETE { background:rgba(248,113,113,.15); color:#f87171; border:1px solid rgba(248,113,113,.3); }
+  .flag-deprecated { background:rgba(248,113,113,.12); color:#f87171; border:1px solid rgba(248,113,113,.25); }
+  .flag-hidden { background:rgba(160,160,160,.12); color:#a0a0a0; border:1px solid rgba(160,160,160,.25); }
+  .flag-v1only { background:rgba(168,85,247,.12); color:#c084fc; border:1px solid rgba(168,85,247,.25); }
+  .flag-v2only { background:rgba(52,211,153,.12); color:#34d399; border:1px solid rgba(52,211,153,.25); }
+  .flag-notmapped { background:rgba(251,191,36,.12); color:#fbbf24; border:1px solid rgba(251,191,36,.25); }
+  .flag-changed { background:rgba(96,165,250,.12); color:#60a5fa; border:1px solid rgba(96,165,250,.25); }
+  .chip { cursor:pointer; user-select:none; transition: all .12s; }
+  .chip.active { background:#a855f7 !important; color:#fff !important; border-color:#a855f7 !important; }
+  .path-cell { font-family:'SF Mono','Fira Code',monospace; font-size:.78rem; }
+  .row-hover:hover { background:#141414; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-track { background:#0a0a0a; }
+  ::-webkit-scrollbar-thumb { background:#2a2a2a; border-radius:5px; }
+</style>
+</head>
+<body class="bg-wt-bg text-wt-fg">
+<div class="max-w-[1400px] mx-auto px-6 py-8">
+
+  <header class="mb-6">
+    <h1 class="text-xl font-semibold text-wt-fg">API Endpoint Map</h1>
+    <p class="text-sm text-wt-muted mt-1">Every v1 and v2 route across 31 (v1) / 29 (v2) controllers, paired by the shared version-less interface they implement, with deprecation and version-exclusivity flags.</p>
+    <div id="summary" class="mt-4 max-w-3xl px-4 py-3 bg-wt-surface/70 border border-wt-border rounded-lg text-sm text-wt-muted leading-relaxed cursor-pointer">
+      v1 and v2 are almost entirely the same surface under different base paths (<code class="text-wt-file">/api/v1</code> + legacy <code class="text-wt-file">/restapi</code> alias vs. <code class="text-wt-file">/api/v2</code> only) &mdash; every v2 interface is also implemented by a v1 controller. The real differences are: v1 carries extra legacy/deprecated methods that v2 dropped, a few v1 routes were renamed on the way to v2 (shown as "changed"), and there are exactly two genuinely v2-only endpoints (<code class="text-wt-file">GET /user/{id}</code> and <code class="text-wt-file">GET /user/get</code>) that replaced the old standalone <code class="text-wt-file">PersoonController</code>, which itself has no v2 equivalent at all. One interface method (<code class="text-wt-file">SurveyAnswersController</code> create/update) is missing its HTTP-mapping annotation in v2 and is not actually reachable there.
+      <div class="text-[0.65rem] text-wt-muted/50 mt-1.5">Click to collapse</div>
+    </div>
+  </header>
+
+  <div class="flex flex-wrap items-center gap-2 mb-5">
+    <input id="search" type="text" placeholder="Search path, controller, or summary&hellip;"
+      class="flex-1 min-w-[240px] px-3 py-2 bg-wt-surface border border-wt-border rounded-lg text-sm text-wt-fg placeholder-wt-muted focus:outline-none focus:border-wt-accent">
+    <div id="chips" class="flex flex-wrap gap-2 text-xs">
+      <span class="chip active px-3 py-1.5 rounded-full border border-wt-border bg-wt-surface text-wt-muted" data-filter="all">All</span>
+      <span class="chip px-3 py-1.5 rounded-full border border-wt-border bg-wt-surface text-wt-muted" data-filter="deprecated">Deprecated</span>
+      <span class="chip px-3 py-1.5 rounded-full border border-wt-border bg-wt-surface text-wt-muted" data-filter="hidden">Hidden</span>
+      <span class="chip px-3 py-1.5 rounded-full border border-wt-border bg-wt-surface text-wt-muted" data-filter="v1only">v1-only</span>
+      <span class="chip px-3 py-1.5 rounded-full border border-wt-border bg-wt-surface text-wt-muted" data-filter="v2only">v2-only</span>
+      <span class="chip px-3 py-1.5 rounded-full border border-wt-border bg-wt-surface text-wt-muted" data-filter="changed">Path changed v1&rarr;v2</span>
+      <span class="chip px-3 py-1.5 rounded-full border border-wt-border bg-wt-surface text-wt-muted" data-filter="notmapped">Not actually mapped</span>
+    </div>
+  </div>
+
+  <div id="count" class="text-xs text-wt-muted mb-2"></div>
+
+  <div class="border border-wt-border rounded-lg overflow-hidden">
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="bg-wt-surface text-left text-wt-muted text-xs uppercase tracking-wide">
+          <th class="px-3 py-2 font-semibold border-b border-wt-border">Method</th>
+          <th class="px-3 py-2 font-semibold border-b border-wt-border">v1 path</th>
+          <th class="px-3 py-2 font-semibold border-b border-wt-border">v2 path</th>
+          <th class="px-3 py-2 font-semibold border-b border-wt-border">Summary</th>
+          <th class="px-3 py-2 font-semibold border-b border-wt-border">Flags</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="text-xs text-wt-muted opacity-50 mt-6 mb-2">v1 base: <code>/api/v1</code> (legacy alias <code>/restapi</code>) &middot; v2 base: <code>/api/v2</code> &middot; paths below are relative to those bases unless shown in full.</div>
+</div>
+
+<script>
+const ROWS = [
+{ g: "AnswerController", m: "GET", v1: "/answer/{edition}", v2: "/answer/{edition}", s: "Get correct MC + open answers for a Kangoeroe edition (current school year)", f: [] },
+
+{ g: "AnswerFormController", m: "POST", v1: "/answerForm", v2: "/kangoeroe/answer-form", s: "Create answer form entries (bulk)", f: ["changed"] },
+{ g: "AnswerFormController", m: "PUT", v1: "/answerForm", v2: "/kangoeroe/answer-form", s: "Update an answer form", f: ["changed"] },
+{ g: "AnswerFormController", m: "GET", v1: "/answerForm", v2: "/kangoeroe/answer-form", s: "Get answer form by role + school ID", f: ["changed"] },
+
+{ g: "AnswerStringController", m: "GET", v1: "/answer-string/kangoeroe (alias /answerString/kangoeroe)", v2: "/answer-string/kangoeroe (alias /answer/string/kangoeroe)", s: "Get Kangoeroe answer string for edition", f: [] },
+{ g: "AnswerStringController", m: "GET", v1: "/answer-string/vwo", v2: "/answer-string/vwo", s: "Get VWO answer string for round", f: [] },
+{ g: "AnswerStringController", m: "GET", v1: "/answer-string/jwo", v2: "/answer-string/jwo", s: "Get JWO answer string for round", f: [] },
+
+{ g: "CacheController", m: "GET", v1: "/evictCache", v2: "/evictCache", s: "Evict all cache entries", f: ["hidden"] },
+
+{ g: "CertificatesController", m: "POST", v1: "/certificates", v2: "/kangoeroe/certificates", s: "Create certificates (bulk)", f: ["changed"] },
+{ g: "CertificatesController", m: "PUT", v1: "/certificates", v2: "/kangoeroe/certificates", s: "Update a certificate entry", f: ["changed"] },
+{ g: "CertificatesController", m: "GET", v1: "/certificates", v2: "/kangoeroe/certificates", s: "Get certificate by role / school / year", f: ["changed"] },
+{ g: "CertificatesController", m: "DELETE", v1: "/certificates", v2: null, s: "Delete certificate by PK — not implemented, always returns 410 Gone", f: ["deprecated", "v1only"] },
+
+{ g: "CompetitionEditionController", m: "POST", v1: "/competition-edition (alias /restapi/competitionEdition)", v2: "/competition-edition", s: "Create Kangoeroe participation-date entries (bulk)", f: [] },
+{ g: "CompetitionEditionController", m: "PUT", v1: "/competition-edition", v2: "/competition-edition", s: "Update a Kangoeroe participation date", f: [] },
+{ g: "CompetitionEditionController", m: "GET", v1: "/competition-edition/kangoeroe", v2: "/competition-edition/kangoeroe", s: "Get Kangoeroe dates for all editions the user is responsible for", f: [] },
+{ g: "CompetitionEditionController", m: "GET", v1: "/competition-edition/kangoeroe/{schoolId}/{contest}", v2: "/competition-edition/kangoeroe/{schoolId}/{contest}", s: "Get Kangoeroe dates for the given contest edition in the specified school", f: [] },
+
+{ g: "DatesController", m: "GET", v1: "/date/vwo", v2: "/date/vwo", s: "Get a phase in the VWO year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/vwo/list", v2: "/date/vwo/list", s: "Get all phases in the VWO year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/vwo/contest/list", v2: "/date/vwo/contest/list", s: "Get all contest dates in the VWO year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/vwo/contest/{round}", v2: "/date/vwo/contest/{round}", s: "Get the date of a round in the VWO year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/kangoeroe/contest/list", v2: "/date/kangoeroe/contest/list", s: "Get all contest dates in the Kangoeroe year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/kangoeroe/app/list", v2: "/date/kangoeroe/app/list", s: "Get all Kangoeroe-app dates for the year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/kangoeroe/contest/{edition}/{period}", v2: "/date/kangoeroe/contest/{edition}/{period}", s: "Get the date of a round in the Kangoeroe year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/kangoeroe/{edition}", v2: "/date/kangoeroe/{edition}", s: "Get a phase in the Kangoeroe year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/kangoeroe/list", v2: "/date/kangoeroe/list", s: "Get all phases in the Kangoeroe year", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/kangoeroe/{edition}/list", v2: "/date/kangoeroe/{edition}/list", s: "Get all phases in the Kangoeroe year, filtered by edition", f: [] },
+{ g: "DatesController", m: "GET", v1: "/date/payment/{contest}", v2: "/date/payment/{contest}", s: "Get payment date interval", f: [] },
+
+{ g: "DocumentsController", m: "GET", v1: "/documents/list/{contest}", v2: "/documents/list/{contest}", s: "Get all documents for the given contest", f: [] },
+{ g: "DocumentsController", m: "GET", v1: "/documents/{ID}", v2: "/documents/{ID}", s: "Get document by ID (only for accessible year/contest/edition)", f: [] },
+
+{ g: "Survey Answers", m: "POST", v1: "/enquetesAntwoorden", v2: "/survey/answers", s: "Create survey answers (bulk)", f: ["changed", "notmapped"] },
+{ g: "Survey Answers", m: "PUT", v1: "/enquetesAntwoorden", v2: "/survey/answers", s: "Update one survey answer", f: ["changed", "notmapped"] },
+{ g: "Survey Answers", m: "GET", v1: "/enquetesAntwoorden/{surveyID}/{questionID}", v2: "/survey/answers/{surveyID}/{questionID}", s: "Get by ID", f: ["changed"] },
+{ g: "Survey Answers", m: "DELETE", v1: "/enquetesAntwoorden/{surveyID}/{questionID}", v2: "/survey/answers/{surveyID}/{questionID}", s: "Delete by ID", f: ["changed"] },
+{ g: "Survey Answers", m: "DELETE", v1: "/enquetesAntwoorden", v2: null, s: "Delete by primary key (legacy overload)", f: ["deprecated", "v1only"] },
+{ g: "Survey Answers", m: "GET", v1: "/enquetesAntwoorden", v2: null, s: "Get by primary key (legacy overload)", f: ["deprecated", "v1only"] },
+
+{ g: "Survey Pupil Participants", m: "GET", v1: "/enqueteDeelnemer", v2: "/survey/pupil/participant", s: "Get all survey pupil-participant records", f: ["changed"] },
+{ g: "Survey Pupil Participants", m: "GET", v1: "/enqueteDeelnemer/{id}/{survey}", v2: "/survey/pupil/participant/{id}/{survey}", s: "Get a survey pupil participant by ID and survey", f: ["changed"] },
+{ g: "Survey Pupil Participants", m: "POST", v1: "/enqueteDeelnemer/post", v2: "/survey/pupil/participant/post", s: "Create a survey pupil participant", f: ["changed"] },
+
+{ g: "Survey Pupil Profile", m: "POST", v1: "/enqueteProfielDeelnemer", v2: "/survey/pupil/profile", s: "Create a survey pupil profile", f: ["changed"] },
+
+{ g: "Survey Completed", m: "POST", v1: "/enquetesVoltooid", v2: "/survey/completed", s: "Create a completed-survey record", f: ["changed"] },
+
+{ g: "FinalLocationController", m: "GET", v1: "/final-location", v2: "/vwo/final-location", s: "Get the final contest location for a given (or current) school year", f: ["changed"] },
+
+{ g: "FunctionController", m: "GET", v1: "/function/{personId} (alias /functies)", v2: "/function/{personId}", s: "Get all roles/functions for a person", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/school/{id}", v2: "/function/school/{id}", s: "Gets all roles for the school with given ID", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/vwo/{id}", v2: "/function/vwo/{id}", s: "Gets all VWO roles for the person with given ID", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/kangoeroe/{id}", v2: "/function/kangoeroe/{id}", s: "Gets all Kangoeroe roles for the person with given ID", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/kangoeroe/school/{schoolId}", v2: "/function/kangoeroe/school/{schoolId}", s: "Gets all Kangoeroe roles for the school with given ID", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/vwo/school/{schoolId}", v2: "/function/vwo/school/{schoolId}", s: "Gets all VWO roles for the school with given ID", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/vwo/school-contacts", v2: "/function/vwo/school-contacts", s: "Gets all VWO/JWO contacts for every school that has at least one, in one call", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/kangoeroe/school-contacts", v2: "/function/kangoeroe/school-contacts", s: "Gets all Kangoeroe contacts for every school that has at least one, in one call", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/vwo/schools-without-contact", v2: "/function/vwo/schools-without-contact", s: "Gets schools missing a contact for at least one requested VWO/JWO edition", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/kangoeroe/schools-without-contact", v2: "/function/kangoeroe/schools-without-contact", s: "Gets schools missing a contact for at least one requested Kangoeroe edition", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/kangoeroe?personId=&schoolId=", v2: "/function/kangoeroe?personId=&schoolId=", s: "Gets all Kangoeroe roles for the person with given ID and school ID", f: [] },
+{ g: "FunctionController", m: "GET", v1: "/function/vwo?personId=&schoolId=", v2: "/function/vwo?personId=&schoolId=", s: "Gets all VWO roles for the person with given ID and school ID", f: [] },
+{ g: "FunctionController", m: "POST", v1: "/function/transfer", v2: "/function/transfer", s: "Transfer one or more roles of the given user to a new person", f: [] },
+{ g: "FunctionController", m: "PUT", v1: "/function/transfer", v2: "/function/transfer", s: "Transfer one or more roles of the given user to an existing person", f: [] },
+{ g: "FunctionController", m: "POST", v1: "/function", v2: null, s: "Create function/role records (legacy, bulk)", f: ["deprecated", "v1only"] },
+{ g: "FunctionController", m: "PUT", v1: "/function", v2: null, s: "Update a function record — not implemented, throws exception (410 Gone)", f: ["deprecated", "hidden", "v1only"] },
+{ g: "FunctionController", m: "DELETE", v1: "/function/delete", v2: null, s: "Delete function by composite key (legacy)", f: ["deprecated", "hidden", "v1only"] },
+{ g: "FunctionController", m: "DELETE", v1: "/function?personId=&schoolId=&function=", v2: null, s: "Delete a person's function/role at a school", f: ["v1only"] },
+{ g: "FunctionController", m: "GET", v1: "/function", v2: null, s: "Get function by composite key — not implemented, throws exception (410 Gone)", f: ["deprecated", "v1only"] },
+
+{ g: "InvoiceController", m: "PUT", v1: "/invoice/details/{schoolId}/{contest}/{personId}", v2: "/invoice/details/{schoolId}/{contest}/{personId}", s: "Update invoice/billing information for a school/contest/person", f: [] },
+{ g: "InvoiceController", m: "GET", v1: "/invoice/details/{schoolId}/{contest}/{personId}", v2: "/invoice/details/{schoolId}/{contest}/{personId}", s: "Get invoice/billing information for a school/contest/person", f: [] },
+{ g: "InvoiceController", m: "POST", v1: "/invoice/{invoiceId}/ingenico", v2: "/invoice/{invoiceId}/ingenico", s: "Create an Ingenico payment record for an invoice", f: [] },
+{ g: "InvoiceController", m: "GET", v1: "/invoice/{invoiceId}/ingenico/{ingenicoId}", v2: "/invoice/{invoiceId}/ingenico/{ingenicoId}", s: "Get an Ingenico payment record", f: ["deprecated"] },
+{ g: "InvoiceController", m: "PUT", v1: "/invoice/{invoiceId}/ingenico/{ingenicoId}", v2: "/invoice/{invoiceId}/ingenico/{ingenicoId}", s: "Update an Ingenico payment record", f: ["deprecated"] },
+{ g: "InvoiceController", m: "PUT", v1: "/invoice/{invoiceId}/generated", v2: "/invoice/{invoiceId}/generated", s: "Set whether an invoice has been generated", f: [] },
+
+{ g: "Kangoeroe Class Codes", m: "POST", v1: "/kangoeroeklassenCodes", v2: "/kangoeroe/class/codes", s: "Create Kangoeroe class codes (bulk)", f: ["changed"] },
+{ g: "Kangoeroe Class Codes", m: "PUT", v1: "/kangoeroeklassenCodes", v2: "/kangoeroe/class/codes", s: "Update a Kangoeroe class code", f: ["changed"] },
+{ g: "Kangoeroe Class Codes", m: "GET", v1: "/kangoeroeklassenCodes/{id}/{code}/{year}", v2: "/kangoeroe/class/codes/{id}/{code}/{year}", s: "Get by class ID and code and by year", f: ["changed"] },
+{ g: "Kangoeroe Class Codes", m: "DELETE", v1: "/kangoeroeklassenCodes", v2: null, s: "Delete by class ID — javadoc says \"doesn't work\"", f: ["deprecated", "hidden", "v1only"] },
+{ g: "Kangoeroe Class Codes", m: "GET", v1: "/kangoeroeklassenCodes", v2: null, s: "Get by class ID — javadoc says \"doesn't work\"", f: ["deprecated", "hidden", "v1only"] },
+
+{ g: "Kangoeroe Class", m: "GET", v1: "/kangoeroeklassenPerSchool/{classId} (alias /kangoeroeClass/{classId})", v2: "/kangoeroe/class/{classId}", s: "Get Kangoeroe class by ID", f: ["changed"] },
+{ g: "Kangoeroe Class", m: "GET", v1: "/kangoeroeklassenPerSchool?schoolId=&edition=&year=", v2: "/kangoeroe/class?schoolId=&edition=&year=", s: "Find Kangoeroe classes by school/edition/year", f: ["changed"] },
+{ g: "Kangoeroe Class", m: "POST", v1: "/kangoeroeklassenPerSchool", v2: "/kangoeroe/class", s: "Create a single Kangoeroe class", f: ["changed"] },
+{ g: "Kangoeroe Class", m: "PUT", v1: "/kangoeroeklassenPerSchool", v2: "/kangoeroe/class", s: "Update a Kangoeroe class", f: ["changed"] },
+{ g: "Kangoeroe Class", m: "DELETE", v1: "/kangoeroeklassenPerSchool/dropClass/{classId}", v2: "/kangoeroe/class/{classId}", s: "Delete by class ID and remove all pupils in this class", f: ["changed"] },
+{ g: "Kangoeroe Class", m: "POST", v1: "/kangoeroeklassenPerSchool/addAll", v2: "/kangoeroe/class/add-all", s: "Bulk-create Kangoeroe classes", f: ["changed"] },
+{ g: "Kangoeroe Class", m: "GET", v1: "/kangoeroeklassenPerSchool/wombatSchool/{schoolId}", v2: null, s: "Get \"Wombat\" (KANWOM) Kangoeroe classes for a school", f: ["deprecated", "v1only"] },
+{ g: "Kangoeroe Class", m: "POST", v1: "/kangoeroeklassenPerSchool/addAllEntities", v2: null, s: "Bulk-create (legacy overload taking raw entity list)", f: ["deprecated", "hidden", "v1only"] },
+
+{ g: "Kangoeroe Pool Participants", m: "POST", v1: "/kangoeroe/pool-participants", v2: "/kangoeroe/pool-participants", s: "Create pool participants for a given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/{pupilId}", v2: "/kangoeroe/pool-participants/{pupilId}", s: "Get a pool participant by pupil ID", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/kangoeroe-number/{kangoeroeNumber}", v2: "/kangoeroe/pool-participants/kangoeroe-number/{kangoeroeNumber}", s: "Get a pool participant by Kangoeroe number", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "POST", v1: "/kangoeroe/pool-participants/answer/{poolId}", v2: "/kangoeroe/pool-participants/answer/{poolId}", s: "Create the definitive answer for pupils of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/answer/{poolId}", v2: "/kangoeroe/pool-participants/answer/{poolId}", s: "Get the definitive answer for pupils of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "POST", v1: "/kangoeroe/pool-participants/temp-answer/{poolId}", v2: "/kangoeroe/pool-participants/temp-answer/{poolId}", s: "Create the temporary answer for pupils of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "PUT", v1: "/kangoeroe/pool-participants/temp-answer/{poolId}", v2: "/kangoeroe/pool-participants/temp-answer/{poolId}", s: "Set the temporary answer for pupils of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/temp-answer/{poolId}", v2: "/kangoeroe/pool-participants/temp-answer/{poolId}", s: "Get the temporary answer for pupils of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "POST", v1: "/kangoeroe/pool-participants/temp-answer/{poolId}/{teamId}", v2: "/kangoeroe/pool-participants/temp-answer/{poolId}/{teamId}", s: "Create the temporary answer for teams of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "PUT", v1: "/kangoeroe/pool-participants/temp-answer/{poolId}/{teamId}", v2: "/kangoeroe/pool-participants/temp-answer/{poolId}/{teamId}", s: "Set the temporary answer for teams of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/temp-answer/{poolId}/{teamId}", v2: "/kangoeroe/pool-participants/temp-answer/{poolId}/{teamId}", s: "Get the temporary answer for teams of the given pool", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/confirmation-status/{poolId}", v2: "/kangoeroe/pool-participants/confirmation-status/{poolId}", s: "Check whether the answers for the given pool have been confirmed", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/answer-status/{poolId}", v2: "/kangoeroe/pool-participants/answer-status/{poolId}", s: "Check whether all pupils for the given pool have temporary answers", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/pool/{poolId}", v2: "/kangoeroe/pool-participants/pool/{poolId}", s: "Get all pupils from a pool (whether grouped in teams or not)", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "GET", v1: "/kangoeroe/pool-participants/pool/{poolId}/{teamId}", v2: "/kangoeroe/pool-participants/pool/{poolId}/{teamId}", s: "Get all pupils from one team", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "PUT", v1: "/kangoeroe/pool-participants/{pupilId}", v2: "/kangoeroe/pool-participants/{pupilId}", s: "Edit existing pupil (pool can't be changed)", f: [] },
+{ g: "Kangoeroe Pool Participants", m: "DELETE", v1: "/kangoeroe/pool-participants", v2: "/kangoeroe/pool-participants", s: "Delete all pupils with given IDs", f: [] },
+
+{ g: "Kangoeroe Participants Answers", m: "POST", v1: "/leerlingKangoeroeAntwoorden (alias /kangoeroe/answers)", v2: "/kangoeroe/answers", s: "Create pupil answers (bulk)", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "PUT", v1: "/leerlingKangoeroeAntwoorden", v2: "/kangoeroe/answers", s: "Update one pupil's answer", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "PUT", v1: "/leerlingKangoeroeAntwoorden/update", v2: "/kangoeroe/answers/update", s: "Bulk update of pupil answers", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "POST", v1: "/leerlingKangoeroeAntwoorden/answer-status", v2: "/kangoeroe/answers/answer-status (or /confirm-school-edition)", s: "Check whether all pupils have temporary answers / confirm answers for pupils", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "GET", v1: "/leerlingKangoeroeAntwoorden", v2: "/kangoeroe/answers", s: "Get by year and pupil ID", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "GET", v1: "/leerlingKangoeroeAntwoorden/confirmation-status/{year}/{schoolId}/{edition}", v2: "/kangoeroe/answers/confirmation-status/{year}/{schoolId}/{edition}", s: "Get confirmation status for a school/edition/year", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "PUT", v1: "/leerlingKangoeroeAntwoorden/updateOne", v2: "/kangoeroe/answers/update-one", s: "Update answer of one pupil", f: ["deprecated"] },
+{ g: "Kangoeroe Participants Answers", m: "POST", v1: "/leerlingKangoeroeAntwoorden/byKangoeroeNumber (alias /by-kangoeroe-number)", v2: "/kangoeroe/answers/by-kangoeroe-number", s: "Create pupil answers keyed by Kangoeroe number", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "PUT", v1: "/leerlingKangoeroeAntwoorden/byKangoeroeNumber (alias /by-kangoeroe-number)", v2: "/kangoeroe/answers/by-kangoeroe-number", s: "Update pupil answers keyed by Kangoeroe number", f: [] },
+{ g: "Kangoeroe Participants Answers", m: "DELETE", v1: "/leerlingKangoeroeAntwoorden/byPk", v2: "/kangoeroe/answers", s: "Delete answer by year and person ID (v1 legacy path, v2 uses interface default)", f: ["deprecated"] },
+{ g: "Kangoeroe Participants Answers", m: "GET", v1: "/leerlingKangoeroeAntwoorden/getByPK", v2: null, s: "Get by year and pupil ID (legacy request-body form)", f: ["deprecated", "hidden", "v1only"] },
+{ g: "Kangoeroe Participants Answers", m: "GET", v1: "/leerlingKangoeroeAntwoorden/confirmationStatus/{classId}", v2: null, s: "Get confirmation status for a class", f: ["v1only"] },
+{ g: "Kangoeroe Participants Answers", m: "GET", v1: "/leerlingKangoeroeAntwoorden/confirmed/{year}/{personId}/{edition}", v2: null, s: "Get confirmation status (legacy) — not implemented, throws exception", f: ["deprecated", "v1only"] },
+{ g: "Kangoeroe Participants Answers", m: "POST", v1: "/leerlingKangoeroeAntwoorden/confirmationStatus (alias /confirmation-status)", v2: null, s: "Get confirmation status for a set of classes (legacy alias)", f: ["deprecated", "v1only"] },
+
+{ g: "Kangoeroe Participants", m: "PUT", v1: "/leerlingKangoeroe (alias /kangoeroe/participants)", v2: "/kangoeroe/participants", s: "Update existing Kangoeroe pupils", f: [] },
+{ g: "Kangoeroe Participants", m: "POST", v1: "/leerlingKangoeroe", v2: "/kangoeroe/participants", s: "Create Kangoeroe pupils for a class", f: [] },
+{ g: "Kangoeroe Participants", m: "DELETE", v1: "/leerlingKangoeroe/id/{id}", v2: "/kangoeroe/participants/id/{id}", s: "Delete by participant's Integer ID", f: [] },
+{ g: "Kangoeroe Participants", m: "DELETE", v1: "/leerlingKangoeroe", v2: "/kangoeroe/participants", s: "Delete pupils by list of IDs", f: [] },
+{ g: "Kangoeroe Participants", m: "GET", v1: "/leerlingKangoeroe", v2: "/kangoeroe/participants", s: "Get by primary key", f: [] },
+{ g: "Kangoeroe Participants", m: "GET", v1: "/leerlingKangoeroe/class/{classId}", v2: "/kangoeroe/participants/class/{classId}", s: "Get pupils by class ID", f: [] },
+{ g: "Kangoeroe Participants", m: "GET", v1: "/leerlingKangoeroe/{kangoeroeNumber}/info", v2: "/kangoeroe/participants/{kangoeroeNumber}/info", s: "Get participant name by Kangoeroe number", f: [] },
+{ g: "Kangoeroe Participants", m: "PUT", v1: "/leerlingKangoeroe/{pupilId}/transfer", v2: "/kangoeroe/participants/{pupilId}/transfer", s: "Transfer a pupil from one class to another within the same school", f: [] },
+{ g: "Kangoeroe Participants", m: "PUT", v1: "/leerlingKangoeroe/answers", v2: "/kangoeroe/participants/answers", s: "Update pupils' answers/results (bulk)", f: [] },
+{ g: "Kangoeroe Participants", m: "GET", v1: "/leerlingKangoeroe/answers", v2: "/kangoeroe/participants/answers", s: "Get a pupil's answer", f: [] },
+{ g: "Kangoeroe Participants", m: "GET", v1: "/leerlingKangoeroe/count", v2: "/kangoeroe/participants/count", s: "Gets the number of Kangoeroe participants, optionally filtered by year/edition", f: [] },
+{ g: "Kangoeroe Participants", m: "GET", v1: "/leerlingKangoeroe/school-counts", v2: "/kangoeroe/participants/school-counts", s: "Gets, per school, participant counts and prize-shipment batch", f: [] },
+{ g: "Kangoeroe Participants", m: "GET", v1: "/leerlingKangoeroe/school-prize-counts", v2: "/kangoeroe/participants/school-prize-counts", s: "Gets, per school, the number of Kangoeroe primus prize winners", f: [] },
+
+{ g: "VWO Participants", m: "POST", v1: "/vwoleerling/post (alias /vwo/participants)", v2: "/vwo/participants/post", s: "Create pupil (hidden in Swagger docs)", f: ["hidden"] },
+{ g: "VWO Participants", m: "PUT", v1: "/vwoleerling/update", v2: "/vwo/participants/update", s: "Update pupil (hidden in Swagger docs)", f: ["hidden"] },
+{ g: "VWO Participants", m: "DELETE", v1: "/vwoleerling/{pupilId}", v2: "/vwo/participants/{pupilId}", s: "Delete by pupil ID", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling/{pupilId}", v2: "/vwo/participants/{pupilId}", s: "Get by pupil ID", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling/usolvit-codes", v2: "/vwo/participants/usolvit-codes", s: "Get usolv-it codes for school", f: [] },
+{ g: "VWO Participants", m: "POST", v1: "/vwoleerling/usolvit-codes", v2: "/vwo/participants/usolvit-codes", s: "Create usolv-it codes for school", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling/usolvit-code/{code}", v2: "/vwo/participants/usolvit-code/{code}", s: "Get pupil by usolv-it code", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling/sheet/{participationNumber}/{gender}/{classYear}", v2: "/vwo/participants/sheet/{participationNumber}/{gender}/{classYear}", s: "Check whether a participation sheet exists (boolean)", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling/sheet/{participationNumber}", v2: "/vwo/participants/sheet/{participationNumber}", s: "Get pupil by participation number", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling?schoolId=&edition=&round=", v2: "/vwo/participants?schoolId=&edition=&round=", s: "Get pupils by school ID, edition (JWO/VWO) and round (1/2/F)", f: [] },
+{ g: "VWO Participants", m: "DELETE", v1: "/vwoleerling", v2: "/vwo/participants", s: "Delete pupils by list of IDs", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling/count", v2: "/vwo/participants/count", s: "Gets the number of VWO/JWO participants, optionally filtered by year/edition", f: [] },
+{ g: "VWO Participants", m: "GET", v1: "/vwoleerling/school-counts", v2: "/vwo/participants/school-counts", s: "Gets, per school, the number of VWO/JWO participants for given edition(s)/year", f: [] },
+{ g: "VWO Participants", m: "POST", v1: "/vwoleerling", v2: "/vwo/participants", s: "Create VWO/JWO pupils for a school and edition (bulk)", f: [] },
+{ g: "VWO Participants", m: "PUT", v1: "/vwoleerling", v2: "/vwo/participants", s: "Update VWO/JWO pupils (bulk)", f: [] },
+{ g: "VWO Participants", m: "PUT", v1: "/vwoleerling/{pupilId}/transfer", v2: "/vwo/participants/{pupilId}/transfer", s: "Transfer pupil to a new round/year", f: [] },
+
+{ g: "PersoonController → UserController", m: "GET", v1: "/person (alias /persoon)", v2: null, s: "Get all persons", f: ["deprecated", "v1only"] },
+{ g: "PersoonController → UserController", m: "GET", v1: "/person/wombat/{schoolId}", v2: null, s: "Get Kangoeroe \"Wombat\" (KANWOM) responsible person for a school", f: ["deprecated", "v1only"] },
+{ g: "PersoonController → UserController", m: "GET", v1: "/person/{id}", v2: "/user/{id}", s: "Get person by ID, incl. tolerance periods — moved into UserController in v2", f: ["changed", "v2only"] },
+{ g: "PersoonController → UserController", m: "GET", v1: "/person/get", v2: "/user/get", s: "Get the data for the user with the given email address — moved into UserController in v2", f: ["changed", "v2only"] },
+
+{ g: "PoolController", m: "POST", v1: "/kangoeroe/pool", v2: "/kangoeroe/pool", s: "Create the pool with given pool ID", f: [] },
+{ g: "PoolController", m: "PUT", v1: "/kangoeroe/pool/{id}", v2: "/kangoeroe/pool/{id}", s: "Change the pool with given pool ID", f: [] },
+{ g: "PoolController", m: "GET", v1: "/kangoeroe/pool/{id}", v2: "/kangoeroe/pool/{id}", s: "Get the pool with given pool ID", f: [] },
+{ g: "PoolController", m: "GET", v1: "/kangoeroe/pool/teacher-login", v2: "/kangoeroe/pool/teacher-login", s: "Check credentials for teacher answer submittal", f: [] },
+{ g: "PoolController", m: "GET", v1: "/kangoeroe/pool/{schoolId}/{edition}", v2: "/kangoeroe/pool/{schoolId}/{edition}", s: "Get pools by school ID and edition", f: [] },
+{ g: "PoolController", m: "DELETE", v1: "/kangoeroe/pool/{id}", v2: "/kangoeroe/pool/{id}", s: "Delete the pool with given ID", f: [] },
+{ g: "PoolController", m: "DELETE", v1: "/kangoeroe/pool", v2: "/kangoeroe/pool", s: "Delete all pools with given IDs", f: [] },
+
+{ g: "ProvincialCenterController", m: "GET", v1: "/provincial-center?id=", v2: "/provincial-center?id=", s: "Get provincial center by ID", f: [] },
+{ g: "ProvincialCenterController", m: "GET", v1: "/provincial-center/{schoolId}", v2: "/provincial-center/{schoolId}", s: "Get provincial center by school ID", f: [] },
+
+{ g: "RegistrationFeeController", m: "GET", v1: "/registration-fee/{edition}", v2: "/registration-fee/{edition}", s: "Get registration fee amount for the given edition", f: [] },
+
+{ g: "ReportsController", m: "GET", v1: "/reports/list", v2: "/reports/list", s: "Get all reports for the given contest", f: [] },
+{ g: "ReportsController", m: "GET", v1: "/reports/{ID}/{contest}", v2: "/reports/{ID}/{contest}", s: "Get report by ID and contest", f: [] },
+
+{ g: "SchoolController", m: "GET", v1: "/school", v2: "/school", s: "Get all schools", f: [] },
+{ g: "SchoolController", m: "GET", v1: "/school/vwo/user/{user_id} (alias /school/user/{user_id})", v2: "/school/vwo/user/{user_id} (alias /school/user/{user_id})", s: "Get all schools for the JWO/VWO responsible with given ID", f: [] },
+{ g: "SchoolController", m: "GET", v1: "/school/kangoeroe/user/{user_id}", v2: "/school/kangoeroe/user/{user_id}", s: "Get all schools for the Kangoeroe responsible with given ID", f: [] },
+{ g: "SchoolController", m: "PUT", v1: "/school/{schoolId}/invoice-details", v2: "/school/{schoolId}/invoice-details", s: "Update a school's invoice/billing details", f: [] },
+{ g: "SchoolController", m: "GET", v1: "/school/{id}", v2: "/school/{id}", s: "Get school information by school ID", f: [] },
+{ g: "SchoolController", m: "POST", v1: "/school", v2: "/school", s: "Create schools (bulk, legacy) — v1's override drops the interface's deprecated/hidden annotations, so v1 exposes this openly while v2 keeps it deprecated+hidden", f: ["deprecated"] },
+{ g: "SchoolController", m: "PUT", v1: "/school", v2: "/school", s: "Update a school", f: [] },
+{ g: "SchoolController", m: "DELETE", v1: "/school", v2: "/school", s: "Delete by ID", f: [] },
+
+{ g: "TeamController", m: "POST", v1: "/kangoeroe/team", v2: "/kangoeroe/team", s: "Create team(s)", f: [] },
+{ g: "TeamController", m: "PUT", v1: "/kangoeroe/team/{id}", v2: "/kangoeroe/team/{id}", s: "Change team info", f: [] },
+{ g: "TeamController", m: "GET", v1: "/kangoeroe/team/{id}", v2: "/kangoeroe/team/{id}", s: "Get team by team ID", f: [] },
+{ g: "TeamController", m: "GET", v1: "/kangoeroe/team/pool/{poolId}", v2: "/kangoeroe/team/pool/{poolId}", s: "Get all teams of the pool with given ID", f: [] },
+{ g: "TeamController", m: "DELETE", v1: "/kangoeroe/team/{id}", v2: "/kangoeroe/team/{id}", s: "Delete the team with given ID", f: [] },
+{ g: "TeamController", m: "PUT", v1: "/kangoeroe/team/{id}/login-pupil/{pupilId}", v2: "/kangoeroe/team/{id}/login-pupil/{pupilId}", s: "Register the pupil that has access to enter the team's answers", f: [] },
+{ g: "TeamController", m: "DELETE", v1: "/kangoeroe/team", v2: "/kangoeroe/team", s: "Delete the teams with given IDs", f: [] },
+{ g: "TeamController", m: "POST", v1: "/kangoeroe/team/answer", v2: "/kangoeroe/team/answer", s: "Set the definitive answer for teams of a certain pool", f: [] },
+{ g: "TeamController", m: "GET", v1: "/kangoeroe/team/answer/{teamId}", v2: "/kangoeroe/team/answer/{teamId}", s: "Get the definitive answer for the given team", f: [] },
+{ g: "TeamController", m: "GET", v1: "/kangoeroe/team/pool/{poolId}/answer", v2: "/kangoeroe/team/pool/{poolId}/answer", s: "Get all definitive answers for the teams in the given pool", f: [] },
+
+{ g: "UserController", m: "POST", v1: "/user/vwo/auth (alias /wachtwoord)", v2: "/user/vwo/auth", s: "Check VWO auth data (email+password against Persoon/Wachtwoorden) and return the person's ID — no JWT issued", f: [] },
+{ g: "UserController", m: "POST", v1: "/user/kangoeroe/auth", v2: "/user/kangoeroe/auth", s: "Check Kangoeroe auth data and return the person's ID — no JWT issued", f: [] },
+{ g: "UserController", m: "PUT", v1: "/user/update", v2: "/user/update", s: "Update user data", f: [] },
+{ g: "UserController", m: "PUT", v1: "/user/update/password", v2: "/user/update/password", s: "Update user password", f: [] },
+
+{ g: "VwoParticipationController", m: "GET", v1: "/vwo-participation", v2: "/vwo/participation", s: "Get VWO/JWO digital-participation info by year/school/edition", f: ["changed"] },
+{ g: "VwoParticipationController", m: "POST", v1: "/vwo-participation", v2: "/vwo/participation", s: "Create digital-participation info", f: ["changed"] },
+{ g: "VwoParticipationController", m: "PUT", v1: "/vwo-participation", v2: "/vwo/participation", s: "Update digital-participation info", f: ["changed"] },
+
+{ g: "WachtwoordController (removed)", m: "GET", v1: "/wachtwoord/{id} (alias /password/{id})", v2: null, s: "Get password record by ID — whole class deprecated for removal", f: ["deprecated", "v1only"] },
+{ g: "WachtwoordController (removed)", m: "GET", v1: "/wachtwoord/reset/{id} (alias /password/reset/{id})", v2: null, s: "Reset password and return new value as plain text — whole class deprecated for removal", f: ["deprecated", "v1only"] },
+];
+
+const FLAG_LABELS = {
+  deprecated: "Deprecated",
+  hidden: "Hidden",
+  v1only: "v1-only",
+  v2only: "v2-only",
+  changed: "Path changed",
+  notmapped: "Not mapped",
+};
+
+const tbody = document.getElementById('tbody');
+const searchInput = document.getElementById('search');
+const chips = document.querySelectorAll('.chip');
+const countEl = document.getElementById('count');
+let activeFilter = 'all';
+
+function render() {
+  const q = searchInput.value.trim().toLowerCase();
+  const filtered = ROWS.filter(r => {
+    if (activeFilter !== 'all' && !r.f.includes(activeFilter)) return false;
+    if (!q) return true;
+    const hay = (r.g + ' ' + r.m + ' ' + (r.v1||'') + ' ' + (r.v2||'') + ' ' + r.s).toLowerCase();
+    return hay.includes(q);
+  });
+  countEl.textContent = `${filtered.length} of ${ROWS.length} endpoints`;
+  let lastGroup = null;
+  const rowsHtml = filtered.map(r => {
+    const groupHeader = r.g !== lastGroup
+      ? `<tr><td colspan="5" class="px-3 pt-4 pb-1 text-[0.7rem] uppercase tracking-wider text-wt-accent font-semibold border-b border-wt-border/50">${r.g}</td></tr>`
+      : '';
+    lastGroup = r.g;
+    const flagsHtml = r.f.map(f => `<span class="badge flag-${f}">${FLAG_LABELS[f]}</span>`).join(' ');
+    return groupHeader + `<tr class="row-hover">
+      <td class="px-3 py-2 align-top border-b border-wt-border/50"><span class="badge m-${r.m}">${r.m}</span></td>
+      <td class="px-3 py-2 align-top border-b border-wt-border/50 path-cell ${r.v1 ? 'text-wt-fg' : 'text-wt-muted/30'}">${r.v1 || '—'}</td>
+      <td class="px-3 py-2 align-top border-b border-wt-border/50 path-cell ${r.v2 ? 'text-wt-fg' : 'text-wt-muted/30'}">${r.v2 || '—'}</td>
+      <td class="px-3 py-2 align-top border-b border-wt-border/50 text-wt-muted">${r.s}</td>
+      <td class="px-3 py-2 align-top border-b border-wt-border/50">${flagsHtml || ''}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rowsHtml || `<tr><td colspan="5" class="px-3 py-8 text-center text-wt-muted">No endpoints match.</td></tr>`;
+}
+
+searchInput.addEventListener('input', render);
+chips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    chips.forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    render();
+  });
+});
+
+const summaryEl = document.getElementById('summary');
+summaryEl.addEventListener('click', () => {
+  summaryEl.classList.toggle('opacity-40');
+});
+
+render();
+</script>
+</body>
+</html>

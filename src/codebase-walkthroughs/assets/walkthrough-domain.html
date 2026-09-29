@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: dark">
+<head>
+<meta charset="UTF-8">
+<title>Business Domain — VWO &amp; Kangoeroe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { colors: {
+      wt: {
+        bg: '#000000', surface: '#0a0a0a', raised: '#141414',
+        border: '#2a2a2a', fg: '#ffffff', muted: '#a0a0a0',
+        accent: '#a855f7', file: '#c084fc', red: '#ef4444',
+      },
+      node: {
+        component: '#a855f7', composable: '#7c3aed', utility: '#6d28d9',
+        external: '#525252', event: '#d8b4fe', data: '#9333ea',
+      },
+    }}},
+  };
+</script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  html, body { background:#000000; margin:0; padding:0; }
+  .mermaid-wrap svg { max-width: none !important; height: auto !important; }
+  .mermaid-wrap .node { cursor: pointer; }
+  .mermaid-wrap .node:hover rect,
+  .mermaid-wrap .node:hover polygon,
+  .mermaid-wrap .node:hover circle,
+  .mermaid-wrap .node:hover .label-container { filter: brightness(1.3); transition: filter .15s; }
+
+  .dt-body p { color:#a0a0a0; font-size:.88rem; line-height:1.65; margin-bottom:10px; }
+  .dt-body p code {
+    background:rgba(168,85,247,.12); padding:1px 6px; border-radius:4px;
+    font-family:'SF Mono','Fira Code',monospace; font-size:.82rem; color:#c084fc;
+  }
+  .dt-body .shiki, .dt-body pre.code-fallback {
+    background: #000000; border: 1px solid #2a2a2a; border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; margin: 8px 0 14px;
+  }
+  .dt-body .shiki { background: #000000 !important; }
+  .dt-body .shiki code, .dt-body pre.code-fallback code {
+    font-family: 'SF Mono','Fira Code',monospace; font-size: .78rem; line-height: 1.55;
+    background: none; padding: 0; border-radius: 0;
+  }
+  .dt-body .shiki code { color: inherit; }
+  .dt-body pre.code-fallback code { color: #e0e0e0; }
+</style>
+</head>
+<body class="bg-wt-bg">
+<div id="root"></div>
+<script type="module">
+import { createHighlighter } from 'https://cdn.jsdelivr.net/npm/shiki@3.22.0/+esm'
+const { useState, useEffect, useRef, useCallback } = React;
+const e = React.createElement;
+
+const SUMMARY = "VWO runs its Olympiad (VWO/JWO) as an elimination contest — First Round, Second Round, then a live Final — while its sibling contest Kangoeroe is one yearly sit-down test split into seven age/grade-band editions, organized per school into pools and (for the two oldest editions) teams. Schools are the anchor: they register, assign a responsible contact, enroll pupils, get invoiced, receive prizes/certificates once scoring is done, and can be asked to complete a post-contest survey. There is no README describing any of this — everything here is reconstructed from Configuration.java's enums and the API's own Swagger summaries.";
+
+const DIAGRAM = `graph TD
+  subgraph orgStructure["Organizing Structure"]
+    schools["School Registration &amp; Roles"]:::component
+    vwoRounds["VWO Contest Rounds<br/>(First &rarr; Second &rarr; Final)"]:::event
+    kangoeroeEditions["Kangoeroe Editions<br/>(age / grade categories)"]:::event
+    poolsTeams["Pools &amp; Teams"]:::data
+  end
+  subgraph participationScoring["Participation &amp; Scoring"]
+    participation["Pupil &amp; Individual Participation"]:::composable
+    answersScoring["Answers &amp; Scoring"]:::utility
+  end
+  subgraph scheduleMoney["Schedule &amp; Money"]
+    datesPhases["Contest Calendar<br/>(rounds, editions, periods)"]:::external
+    payments["Registration Fees,<br/>Invoicing &amp; Payments"]:::data
+  end
+  subgraph afterContest["After the Contest"]
+    prizes["Prizes &amp; Certificates"]:::data
+    surveys["Post-Contest Surveys"]:::composable
+  end
+
+  schools -->|"enrolls pupils into"| vwoRounds
+  schools -->|"enrolls pupils into"| kangoeroeEditions
+  kangoeroeEditions -->|"organized as"| poolsTeams
+  schools -->|"admits"| participation
+  vwoRounds -->|"produces"| answersScoring
+  poolsTeams -->|"produces"| answersScoring
+  datesPhases -.->|"schedules"| vwoRounds
+  datesPhases -.->|"schedules"| kangoeroeEditions
+  schools -->|"owes"| payments
+  datesPhases -.->|"sets window for"| payments
+  answersScoring -->|"leads to"| prizes
+  participation -->|"invited to"| surveys
+
+  click schools nodeClickHandler "View details"
+  click vwoRounds nodeClickHandler "View details"
+  click kangoeroeEditions nodeClickHandler "View details"
+  click poolsTeams nodeClickHandler "View details"
+  click participation nodeClickHandler "View details"
+  click answersScoring nodeClickHandler "View details"
+  click datesPhases nodeClickHandler "View details"
+  click payments nodeClickHandler "View details"
+  click prizes nodeClickHandler "View details"
+  click surveys nodeClickHandler "View details"
+
+  classDef component fill:#a855f7,stroke:#c084fc,color:#fff
+  classDef composable fill:#7c3aed,stroke:#a78bfa,color:#fff
+  classDef utility fill:#6d28d9,stroke:#8b5cf6,color:#fff
+  classDef external fill:#525252,stroke:#737373,color:#fff
+  classDef event fill:#d8b4fe,stroke:#e9d5ff,color:#000
+  classDef data fill:#9333ea,stroke:#a855f7,color:#fff
+`;
+
+const NODES = {
+  schools: {
+    title: "School Registration & Roles",
+    description: "A school is the anchor entity for both contests: it registers, gets a designated responsible contact, and enrolls its pupils. A person's relationship to a school is captured as a 'function' — ordinary member, the responsible administrator, or a grading jury member.",
+    files: ["Configuration.java — enum FunctionOption", "Scholen.java", "restAPI/controllers/SchoolController.java"],
+    code: `public enum FunctionOption {
+    // ...contest-category roles...
+    Schoollid, Schoolverantwoordelijke,
+    Individueel, Individueelplus, Kennisplus,
+    Jury, Individueel_ELO
+}`,
+    lang: "java",
+  },
+  vwoRounds: {
+    title: "VWO Contest Rounds (First → Second → Final)",
+    description: "VWO/JWO (Vlaamse Wiskunde Olympiade) is an elimination-style olympiad: pupils sit a First Round, top scorers advance to a Second Round, and the best of those compete live in a Final at a physical location.",
+    files: ["Configuration.java — enum VwoRound, VwoRole", "LeerlingEersteRonde.java", "LeerlingTweedeRonde.java", "LeerlingFinale.java"],
+    code: `public enum VwoRound { ONE('1'), TWO('2'), FINAL('F') }
+public enum VwoRole { VWO, JWO }
+// @Operation(summary = "Get the date of a round in the VWO year.")`,
+    lang: "java",
+  },
+  kangoeroeEditions: {
+    title: "Kangoeroe Editions (age / grade categories)",
+    description: "Kangoeroe is one yearly sit-down test, but split into seven age/grade-band editions from early primary through late secondary. A pupil or school-contact is always tied to exactly one edition.",
+    files: ["Configuration.java — enum KangoeroeRole, VwoKangoeroeRole"],
+    code: `public enum KangoeroeRole {
+    KANWOM, KANS, KANK, KANWB, KANWR, KANQ, KANNUM
+}`,
+    lang: "java",
+  },
+  poolsTeams: {
+    title: "Pools & Teams",
+    description: "Within a school and edition, participants are grouped into a pool — the school's registered batch of entrants for that edition. For the two oldest editions (KANQ, KANNUM), pool members can further be grouped into teams that submit one shared answer.",
+    files: ["Configuration.java — enum PoolKind, KangoeroePoolEdition", "Poules.java", "Teams.java", "restAPI/controllers/PoolController.java", "restAPI/controllers/TeamController.java"],
+    code: `public enum KangoeroePoolEdition { KANNUM, KANQ }
+public enum PoolKind { INDIVIDUEEL, TEAM }
+// @Operation(summary = "Set the definitive answer for teams of a certain pool.")`,
+    lang: "java",
+  },
+  participation: {
+    title: "Pupil & Individual Participation",
+    description: "Beyond school-organized entry, individuals can register directly — including a paid 'plus' tier — and pupils reach the contest through different channels: the mobile/web app, a school-driven registration, or a class code their teacher hands out.",
+    files: ["Configuration.java — enum FunctionOption, Channel"],
+    code: `public enum Channel { APP, SV, KLASCODE }
+// FunctionOption also includes: Individueel, Individueelplus, Individueel_ELO`,
+    lang: "java",
+  },
+  answersScoring: {
+    title: "Answers & Scoring",
+    description: "Contest papers mix multiple-choice questions with open questions (free text or a natural-number answer). Pupils' or teams' answers are recorded and matched against a correct-answer key per year/edition/round/question.",
+    files: ["Configuration.java — enum QuestionType, OpenQuestionType", "Antwoorden.java", "restAPI/controllers/AnswerController.java"],
+    code: `public enum QuestionType { MC1, STRING, NAT_GETAL }
+static final String KANGOEROE_ALLOWED_MC1_ANSWERS_REGEX = "[A-EX]";`,
+    lang: "java",
+  },
+  datesPhases: {
+    title: "Contest Calendar (rounds, editions, periods)",
+    description: "Every school year has its own calendar: when each VWO round happens, when each Kangoeroe edition's test date falls, and when the registration-fee payment window is open. Kangoeroe further splits its year into two scheduling periods.",
+    files: ["Configuration.java — enum KangoeroePeriod", "restAPI/controllers/DatesController.java"],
+    code: `public enum KangoeroePeriod { OW, UW }
+// @Operation(summary = "Get all contest dates in the Kangoeroe year.")
+// @Operation(summary = "Get payment date interval.")`,
+    lang: "java",
+  },
+  payments: {
+    title: "Registration Fees, Invoicing & Payments",
+    description: "Schools (or individuals) owe a registration fee per contest edition. The system tracks invoicing details — institution, VAT/company number, order number — per school/contest/responsible person, and records payments made against that invoice.",
+    files: ["Configuration.java — enum ContestRole", "Betalingen.java", "Factuurgegevens.java", "restAPI/controllers/RegistrationFeeController.java", "restAPI/controllers/InvoiceController.java"],
+    code: `public enum ContestRole { WO, KAN }
+// registration fee is looked up per VwoKangoeroeRole edition`,
+    lang: "java",
+  },
+  prizes: {
+    title: "Prizes & Certificates",
+    description: "After scoring, participants and schools receive recognition: an individual certificate (none, name-only, or standard), plus school-level 'primus' (top-scorer) prize tracking used to ship physical prizes.",
+    files: ["Configuration.java — enum CertificationOption", "WedstrijdinfoKangoeroe.java"],
+    code: `public enum CertificationOption { Geen, Naam, Standaard }
+// @Operation(summary = "Gets, per school, the number of Kangoeroe primus
+//   prize winners for the given edition(s) and year.")`,
+    lang: "java",
+  },
+  surveys: {
+    title: "Post-Contest Surveys",
+    description: "After participating, pupils (and responsible adults) can be invited to fill in a survey about their experience. The data model splits this into who took it, their profile, what they answered, and whether they finished.",
+    files: ["EnquetesDeelnemersLeerlingen.java", "EnquetesProfielLeerlingen.java", "EnquetesAntwoorden.java", "EnquetesVoltooid.java"],
+    code: `// four-table split reflects the survey's shape:
+EnquetesDeelnemersLeerlingen  // who took it
+EnquetesProfielLeerlingen     // their profile
+EnquetesAntwoorden            // what they answered
+EnquetesVoltooid              // whether they finished`,
+    lang: "java",
+  },
+};
+
+const LEGEND = [
+  { label: 'School / Org', color: 'bg-node-component' },
+  { label: 'Contest Structure', color: 'bg-node-event' },
+  { label: 'Person / Process', color: 'bg-node-composable' },
+  { label: 'Scoring Logic', color: 'bg-node-utility' },
+  { label: 'Calendar (external)', color: 'bg-node-external' },
+  { label: 'Money / Records', color: 'bg-node-data' },
+];
+
+const langs = [...new Set(Object.values(NODES).map(n => n.lang).filter(Boolean))];
+if (langs.length === 0) langs.push('typescript');
+let highlighter = null;
+try { highlighter = await createHighlighter({ themes: ['vitesse-dark'], langs }); }
+catch (err) { console.warn('Shiki failed:', err); }
+const HIGHLIGHTED = {};
+for (const [id, node] of Object.entries(NODES)) {
+  if (node.code && highlighter) {
+    try { HIGHLIGHTED[id] = highlighter.codeToHtml(node.code, { lang: node.lang || 'typescript', theme: 'vitesse-dark' }); }
+    catch (err) { console.warn(`Highlight failed for ${id}:`, err); }
+  }
+}
+
+function usePanZoom() {
+  const viewportRef = useRef(null), canvasRef = useRef(null), zoomDisplayRef = useRef(null);
+  const st = useRef({ zoom: 1, panX: 0, panY: 0 });
+  const drag = useRef({ on: false, lx: 0, ly: 0 });
+
+  const apply = useCallback(() => {
+    const { zoom, panX, panY } = st.current;
+    if (canvasRef.current) canvasRef.current.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+    if (zoomDisplayRef.current) zoomDisplayRef.current.textContent = Math.round(zoom * 100) + '%';
+  }, []);
+
+  const fitToScreen = useCallback(() => {
+    const svg = canvasRef.current?.querySelector('svg');
+    const vp = viewportRef.current;
+    if (!svg || !vp) return;
+    const s = st.current;
+    const vw = vp.clientWidth, vh = vp.clientHeight;
+    const sw = svg.getBoundingClientRect().width / s.zoom;
+    const sh = svg.getBoundingClientRect().height / s.zoom;
+    const fit = Math.max(0.15, Math.min(2, Math.min((vw - 80) / sw, (vh - 80) / sh)));
+    s.zoom = fit; s.panX = (vw - sw * fit) / 2; s.panY = (vh - sh * fit) / 2;
+    apply();
+  }, [apply]);
+
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const onWheel = (ev) => {
+      ev.preventDefault();
+      const r = vp.getBoundingClientRect();
+      const mx = ev.clientX - r.left, my = ev.clientY - r.top, s = st.current;
+      const f = ev.deltaY < 0 ? 1.12 : 1 / 1.12;
+      const nz = Math.min(4, Math.max(0.15, s.zoom * f)), sc = nz / s.zoom;
+      s.panX = mx - sc * (mx - s.panX); s.panY = my - sc * (my - s.panY); s.zoom = nz;
+      apply();
+    };
+    const onDown = (ev) => {
+      if (ev.target.closest('.node')) return;
+      drag.current = { on: true, lx: ev.clientX, ly: ev.clientY };
+      vp.setPointerCapture(ev.pointerId);
+    };
+    const onMove = (ev) => {
+      const d = drag.current; if (!d.on) return;
+      st.current.panX += ev.clientX - d.lx; st.current.panY += ev.clientY - d.ly;
+      d.lx = ev.clientX; d.ly = ev.clientY; apply();
+    };
+    const onUp = () => { drag.current.on = false; };
+    vp.addEventListener('wheel', onWheel, { passive: false });
+    vp.addEventListener('pointerdown', onDown);
+    vp.addEventListener('pointermove', onMove);
+    vp.addEventListener('pointerup', onUp);
+    vp.addEventListener('pointercancel', onUp);
+    window.addEventListener('resize', fitToScreen);
+    return () => {
+      vp.removeEventListener('wheel', onWheel);
+      vp.removeEventListener('pointerdown', onDown);
+      vp.removeEventListener('pointermove', onMove);
+      vp.removeEventListener('pointerup', onUp);
+      vp.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('resize', fitToScreen);
+    };
+  }, [apply, fitToScreen]);
+
+  const zoomIn = useCallback(() => { st.current.zoom = Math.min(4, st.current.zoom * 1.25); apply(); }, [apply]);
+  const zoomOut = useCallback(() => { st.current.zoom = Math.max(0.15, st.current.zoom / 1.25); apply(); }, [apply]);
+  return { viewportRef, canvasRef, zoomDisplayRef, zoomIn, zoomOut, fitToScreen };
+}
+
+function MermaidDiagram({ onNodeClick }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    window.nodeClickHandler = onNodeClick;
+    mermaid.initialize({
+      startOnLoad: false, theme: 'dark', securityLevel: 'loose',
+      themeVariables: {
+        primaryColor: '#0a0a0a', primaryTextColor: '#ffffff', primaryBorderColor: '#2a2a2a',
+        lineColor: '#a0a0a0', background: '#000000',
+        secondaryColor: '#000000', tertiaryColor: '#000000',
+        mainBkg: '#0a0a0a', nodeBorder: '#2a2a2a',
+        clusterBkg: 'rgba(10,10,10,0.8)', clusterBorder: '#7c3aed',
+        titleColor: '#ffffff', edgeLabelBackground: 'transparent',
+      },
+      flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+    });
+    mermaid.render('walkthrough-diagram', DIAGRAM).then(({ svg, bindFunctions }) => {
+      if (ref.current) { ref.current.innerHTML = svg; bindFunctions?.(ref.current); }
+    });
+    return () => { delete window.nodeClickHandler; };
+  }, [onNodeClick]);
+  return e('div', { ref, className: 'mermaid-wrap' });
+}
+
+function Summary({ collapsed, onToggle }) {
+  if (collapsed) {
+    return e('div', {
+      onClick: onToggle,
+      className: 'fixed top-16 left-6 z-10 px-3 py-1.5 bg-wt-surface/60 backdrop-blur border border-wt-border rounded-full shadow-lg cursor-pointer hover:bg-wt-surface/80 transition-all duration-300',
+    }, e('span', { className: 'text-xs text-wt-muted font-medium' }, 'ℹ︎ Summary'));
+  }
+  return e('div', {
+    onClick: onToggle,
+    className: 'fixed top-16 left-6 z-10 max-w-lg px-4 py-3 bg-wt-surface/80 backdrop-blur border border-wt-border rounded-lg shadow-lg cursor-pointer transition-all duration-300',
+  },
+    e('p', { className: 'text-sm text-wt-muted leading-relaxed' }, SUMMARY),
+    e('p', { className: 'text-[0.65rem] text-wt-muted/50 mt-1.5' }, 'Click to dismiss')
+  );
+}
+
+function DetailPanel({ nodeId, node, onClose }) {
+  useEffect(() => {
+    const onKey = (ev) => { if (ev.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const codeHtml = HIGHLIGHTED[nodeId];
+  return e('div', { className: 'fixed top-4 right-4 bottom-4 w-[560px] z-30 bg-wt-surface border border-wt-border rounded-xl shadow-2xl flex flex-col overflow-hidden' },
+    e('button', {
+      onClick: onClose,
+      className: 'absolute top-3 right-3 z-10 w-7 h-7 rounded-md border border-wt-border bg-wt-raised text-wt-muted flex items-center justify-center text-lg hover:bg-wt-red hover:border-wt-red hover:text-white transition-colors',
+    }, '×'),
+    e('div', { className: 'flex-1 overflow-y-auto p-5' },
+      e('h2', { className: 'text-lg font-bold text-wt-fg mb-3 pr-9' }, node.title),
+      e('div', { className: 'dt-body' }, e('p', null, node.description)),
+      node.code && e('div', { className: 'dt-body' },
+        codeHtml
+          ? e('div', { dangerouslySetInnerHTML: { __html: codeHtml } })
+          : e('pre', { className: 'code-fallback' }, e('code', null, node.code))
+      ),
+      node.files?.length > 0 && e('div', { className: 'mt-4 pt-3 border-t border-wt-border' },
+        e('div', { className: 'text-[0.7rem] uppercase tracking-wider text-wt-muted font-semibold mb-1.5' }, 'Grounded in'),
+        e('code', { className: 'text-sm text-wt-file font-mono leading-relaxed' },
+          node.files.map((f, i) => e('span', { key: i }, f, e('br')))
+        )
+      )
+    )
+  );
+}
+
+function ZoomControls({ zoomDisplayRef, onZoomIn, onZoomOut, onFit }) {
+  const btn = 'w-8 h-8 rounded-md border border-wt-border bg-wt-raised text-wt-fg flex items-center justify-center hover:bg-wt-accent/30 transition-colors text-sm';
+  return e('div', { className: 'fixed bottom-5 left-5 z-20 flex items-center gap-2 px-2 py-2 bg-wt-surface border border-wt-border rounded-lg shadow-xl' },
+    e('button', { className: btn, onClick: onZoomOut }, '−'),
+    e('span', { ref: zoomDisplayRef, className: 'text-xs text-wt-muted w-10 text-center' }, '100%'),
+    e('button', { className: btn, onClick: onZoomIn }, '+'),
+    e('button', { className: btn + ' w-auto px-2', onClick: onFit }, 'Fit')
+  );
+}
+
+function App() {
+  const [activeId, _setActiveId] = useState(null);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(true);
+  const pz = usePanZoom();
+
+  const setActiveNode = useCallback((nodeId) => {
+    _setActiveId(nodeId);
+    document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = nodeId ? '0.4' : '1'; });
+    if (nodeId) {
+      const el = document.querySelector(`.mermaid-wrap .node[id*="${nodeId}"]`);
+      if (el) el.style.opacity = '1';
+    }
+  }, []);
+  const closeDetail = useCallback(() => {
+    _setActiveId(null);
+    document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = '1'; });
+  }, []);
+  useEffect(() => { setTimeout(pz.fitToScreen, 600); }, [pz.fitToScreen]);
+
+  return e(React.Fragment, null,
+    e('header', { className: 'fixed top-0 inset-x-0 z-10 px-6 py-3.5 bg-gradient-to-b from-wt-bg to-transparent pointer-events-none' },
+      e('h1', { className: 'text-base font-semibold text-wt-fg' }, 'Business Domain — VWO & Kangoeroe'),
+      e('p', { className: 'text-sm text-wt-muted mt-0.5' }, 'What the two contests actually are, in plain English — not code architecture')
+    ),
+    e(Summary, { collapsed: summaryCollapsed, onToggle: () => setSummaryCollapsed(c => !c) }),
+    e('div', { ref: pz.viewportRef, className: 'w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing' },
+      e('div', { ref: pz.canvasRef, className: 'origin-top-left will-change-transform inline-block p-[80px_60px_60px]' },
+        e(MermaidDiagram, { onNodeClick: setActiveNode })
+      )
+    ),
+    e(ZoomControls, { zoomDisplayRef: pz.zoomDisplayRef, onZoomIn: pz.zoomIn, onZoomOut: pz.zoomOut, onFit: pz.fitToScreen }),
+    e('div', { className: 'fixed bottom-5 left-1/2 -translate-x-1/2 z-20 flex gap-4 px-4 py-2 bg-wt-surface border border-wt-border rounded-lg shadow-xl' },
+      LEGEND.map(l => e('span', { key: l.label, className: 'flex items-center gap-1.5 text-xs text-wt-muted' },
+        e('span', { className: `w-2 h-2 rounded-full ${l.color}` }), l.label
+      ))
+    ),
+    activeId && NODES[activeId] && e(DetailPanel, { nodeId: activeId, node: NODES[activeId], onClose: closeDetail }),
+    e('div', { className: 'fixed bottom-5 right-5 z-20 text-xs text-wt-muted opacity-50' },
+      e('kbd', null, 'Scroll'), ' zoom · ', e('kbd', null, 'Drag'), ' pan · Click nodes'
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+</script>
+</body>
+</html>
