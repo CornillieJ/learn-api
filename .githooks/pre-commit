@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Runs the widget tests and a full mdBook build before every commit, so a
+# broken widget or a build warning never gets committed in the first place.
+# One-time setup (per clone): git config core.hooksPath .githooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+echo "pre-commit: running widget tests..."
+npm test
+
+echo "pre-commit: building the book..."
+if command -v mdbook >/dev/null 2>&1; then
+  mdbook build
+else
+  echo "pre-commit: mdbook not found on PATH, skipping the build check." >&2
+  echo "pre-commit: install it (see README Quick start) to catch build warnings here too." >&2
+fi

@@ -1,18 +1,42 @@
-// Journey map of the 7 steps: <div data-progress-map></div>
-// Reads done-state from checkmarks.js's localStorage keys.
+// Progress map: a journey through your chapters, built from a plain markdown
+// list inside a `data-progress-map` div (use MARKDOWN links so mdBook
+// rewrites .md to .html):
+//
+//   <div data-progress-map>
+//
+//   - [Chapter one](chapter_1.md) Short blurb
+//   - [Chapter two](chapter_2.md) Short blurb
+//
+//   </div>
+//
+// Optional attributes on the div: data-title ("Your progress"),
+// data-label ("Chapter", the word before each stop's number),
+// data-done-text (shown once every stop is done).
+// Done-state is read from checkmarks.js's localStorage keys.
 (function () {
-  var STEPS = [
-    { slug: 'step-1-java-syntax', short: 'Java syntax', hours: 3, blurb: 'C# to Java, fast' },
-    { slug: 'step-2-maven', short: 'Maven', hours: 3, blurb: 'csproj + NuGet, Java style' },
-    { slug: 'step-3-spring-mvc-war', short: 'Spring MVC & WAR', hours: 8, blurb: 'Controllers, DI, deployment' },
-    { slug: 'step-4-persistence-hibernate', short: 'Hibernate & HQL', hours: 6, blurb: 'The EF Core of this repo' },
-    { slug: 'step-5-spring-security', short: 'Spring Security', hours: 3, blurb: 'Filters and auth' },
-    { slug: 'step-6-lombok', short: 'Lombok', hours: 2, blurb: 'Where the getters went' },
-    { slug: 'step-7-ecosystem-audio', short: 'Ecosystem audio', hours: 0, blurb: 'Background listening' },
-  ];
+  function prefix() {
+    var c = typeof window !== 'undefined' && window.BookConfig;
+    return (c && c.storagePrefix) || 'mybook';
+  }
+
+  function slugFromHref(href) {
+    var s = String(href || '').replace(/[?#].*$/, '').replace(/^\.?\//, '').replace(/^.*\//, '').replace(/\.html$/, '');
+    return s || 'index';
+  }
+
+  // "— Short blurb" / ": blurb" / "  blurb " -> "blurb"
+  function cleanBlurb(text) {
+    return String(text || '').replace(/\s+/g, ' ').replace(/^[\s\-–—:·|]+/, '').trim();
+  }
+
+  // Pure: one list item's parts -> a stop.
+  function parseEntry(href, title, rest) {
+    if (!href) return null;
+    return { href: href, slug: slugFromHref(href), title: String(title || '').trim() || slugFromHref(href), blurb: cleanBlurb(rest) };
+  }
 
   function isDoneStored(slug) {
-    try { return localStorage.getItem('learn-api:done:' + slug) === '1'; } catch (e) { return false; }
+    try { return localStorage.getItem(prefix() + ':done:' + slug) === '1'; } catch (e) { return false; }
   }
 
   // Pure: summary of a done-flags array.
@@ -28,54 +52,75 @@
     };
   }
 
-  function rootPath() {
-    return (typeof path_to_root !== 'undefined' && path_to_root) ? path_to_root : ''; // eslint-disable-line no-undef
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function currentSlug() {
-    return location.pathname.replace(/^.*\//, '').replace(/\.html$/, '');
+  function readEntries(root) {
+    var out = [];
+    root.querySelectorAll('li').forEach(function (li) {
+      var a = li.querySelector('a[href]');
+      if (!a) return;
+      var clone = li.cloneNode(true);
+      var ca = clone.querySelector('a[href]');
+      if (ca) ca.remove();
+      // a.href is already resolved against the current page.
+      var e = parseEntry(a.href, a.textContent, clone.textContent);
+      if (e) out.push(e);
+    });
+    return out;
   }
 
-  function render(root) {
-    var flags = STEPS.map(function (s) { return isDoneStored(s.slug); });
+  function currentSlug() { return slugFromHref(location.pathname); }
+
+  function render(root, stops) {
+    var flags = stops.map(function (s) { return isDoneStored(s.slug); });
     var st = journeyState(flags);
     var here = currentSlug();
-    var html = '<div class="pm-head"><div class="pm-title">Your journey</div>' +
-      '<div class="pm-stat"><strong>' + st.doneCount + '</strong> of ' + st.total + ' steps done</div>' +
-      '<div class="pm-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + st.percent + '"><span style="width:' + st.percent + '%"></span></div></div>';
-    html += '<ol class="pm-path">';
-    STEPS.forEach(function (s, i) {
+    var title = root.getAttribute('data-title') || 'Your progress';
+    var label = root.getAttribute('data-label') || 'Chapter';
+    var html = '<div class="pm-head"><div class="pm-title">' + escapeHtml(title) + '</div>' +
+      '<div class="pm-stat"><strong>' + st.doneCount + '</strong> of ' + st.total + ' done</div>' +
+      '<div class="pm-meter" role="progressbar" aria-label="' + escapeHtml(title) + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + st.percent + '"><span style="width:' + st.percent + '%"></span></div></div>';
+    html += '<ol class="pm-path' + (stops.length > 7 ? ' pm-long' : '') + '" style="--pm-n:' + stops.length + '">';
+    stops.forEach(function (s, i) {
       var cls = flags[i] ? 'pm-done' : (i === st.nextIndex ? 'pm-next' : 'pm-todo');
       if (s.slug === here) cls += ' pm-here';
-      var title = s.short;
-      html += '<li class="pm-stop ' + cls + '"><a href="' + rootPath() + s.slug + '.html">' +
+      html += '<li class="pm-stop ' + cls + '"><a href="' + escapeHtml(s.href) + '">' +
         '<span class="pm-node" aria-hidden="true">' + (flags[i] ? '&#10003;' : (i + 1)) + '</span>' +
-        '<span class="pm-text"><span class="pm-step">Step ' + (i + 1) + '<span class="pm-h">' + (s.hours ? ' &middot; ~' + s.hours + 'h' : ' &middot; ongoing') + '</span></span>' +
-        '<span class="pm-name">' + title + '</span>' +
-        '<span class="pm-blurb">' + s.blurb + '</span></span>' +
+        '<span class="pm-text"><span class="pm-step">' + escapeHtml(label) + ' ' + (i + 1) + '</span>' +
+        '<span class="pm-name">' + escapeHtml(s.title) + '</span>' +
+        (s.blurb ? '<span class="pm-blurb">' + escapeHtml(s.blurb) + '</span>' : '') + '</span>' +
         (i === st.nextIndex ? '<span class="pm-flag">Up next</span>' : '') +
         '<span class="pm-sr">' + (flags[i] ? ' (done)' : '') + '</span></a></li>';
     });
     html += '</ol>';
     if (st.allDone) {
-      html += '<div class="pm-cta pm-finished"><span>Every step done. Time to ship some Java.</span>' +
-        '<a class="pm-btn" href="' + rootPath() + 'cheat-sheet.html">Open the cheat sheet</a></div>';
+      html += '<div class="pm-cta pm-finished"><span class="pm-trophy" aria-hidden="true">&#9733;</span><span>' +
+        escapeHtml(root.getAttribute('data-done-text') || 'Every chapter done. Nice work!') + '</span></div>';
     } else {
-      var n = STEPS[st.nextIndex];
-      var label = st.doneCount ? 'Continue where you left off' : 'Start the journey';
-      html += '<div class="pm-cta"><a class="pm-btn" href="' + rootPath() + n.slug + '.html">' + label +
-        ': Step ' + (st.nextIndex + 1) + ' <span aria-hidden="true">&rarr;</span></a></div>';
+      var n = stops[st.nextIndex];
+      var cta = st.doneCount ? 'Continue where you left off' : 'Start';
+      html += '<div class="pm-cta"><a class="pm-btn" href="' + escapeHtml(n.href) + '">' + cta +
+        ': ' + escapeHtml(n.title) + ' <span aria-hidden="true">&rarr;</span></a></div>';
     }
     root.innerHTML = html;
     root.classList.add('pm-ready');
   }
 
   function wire() {
-    var maps = document.querySelectorAll('[data-progress-map]');
+    // mdBook's print.html inlines every page and rewrites links to in-page
+    // anchors; leave the plain list alone there.
+    if (currentSlug() === 'print') return;
+    var maps = Array.prototype.slice.call(document.querySelectorAll('[data-progress-map]'));
     if (!maps.length) return;
-    function all() { maps.forEach(render); }
+    var parsed = maps.map(readEntries);
+    // Remember which chapters the book tracks, so "N of M done" works on
+    // chapter pages too (see checkmarks.js).
+    try { localStorage.setItem(prefix() + ':tracked', JSON.stringify(parsed[0].map(function (s) { return s.slug; }))); } catch (e) {}
+    function all() { maps.forEach(function (m, i) { if (parsed[i].length) render(m, parsed[i]); }); }
     all();
-    document.addEventListener('learn-api:done-changed', all);
+    document.addEventListener('book:done-changed', all);
     window.addEventListener('storage', all);
     window.addEventListener('pageshow', all);
   }
@@ -85,6 +130,6 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { STEPS: STEPS, journeyState: journeyState };
+    module.exports = { journeyState: journeyState, parseEntry: parseEntry, cleanBlurb: cleanBlurb, slugFromHref: slugFromHref };
   }
 })();

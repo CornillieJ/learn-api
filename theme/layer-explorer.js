@@ -1,136 +1,142 @@
+// Layer explorer: a clickable stack of layers with a detail card and an
+// animated "Trace a request" dot, built from markup:
+//
+//   <div class="layer-explorer" data-layer-explorer data-entry="HTTP request" data-exit="Database">
+//   <div class="layer" data-name="Controller" data-tag="routing + validation"
+//        data-trace="The request lands in the controller">Detail HTML for the card.</div>
+//   ...
+//   </div>
+//
+// Per layer: data-name (required), data-tag (small chip), data-trace (the
+// caption while the trace dot sits on this layer; `backticks` become code).
+// On the container, all optional: data-entry / data-exit (end nodes above and
+// below the stack; omitted when absent), data-return (caption for the trip
+// back up), data-trace-label (button text, default "Trace a request").
+// Keys: arrow up/down (and Home/End) move between layers.
 (function () {
-  var LAYERS = [
-    { id: 'controller', label: 'Controller',
-      annotations: '@RestController, @RequestMapping, @GetMapping/@PostMapping, @PathVariable, @RequestBody',
-      files: 'restAPI/controllers/**, e.g. controllers/v2/SchoolController.java',
-      csharpShort: 'ASP.NET Core controller',
-      csharp: 'An ASP.NET Core [ApiController]: [Route], [HttpGet("{id}")], [FromRoute] / [FromBody] do the same jobs as the Spring annotations.',
-      trace: 'The request lands here. @GetMapping matches the URL, @PathVariable binds the id, and getById asks the repository: getRepository().findById(id).' },
-    { id: 'repository', label: 'Repository',
-      annotations: '@Repository, @Transactional(value = transactionR|transactionRW), constructor @Autowired',
-      files: '*RepositoryImpl, e.g. ScholenRepositoryImpl.java',
-      csharpShort: 'service layer',
-      csharp: 'Your service layer: a DI-registered class (constructor injection) that owns the unit of work. @Transactional is like wrapping the method in a DbContext transaction / TransactionScope.',
-      trace: 'The repository opens a transaction (read-only transactionR for a lookup) and delegates the actual query to its DAO.' },
-    { id: 'dao', label: 'DAO',
-      annotations: 'Hand-written HQL via Session.createQuery(...), not Spring Data JPA',
-      files: 'dao/impl/*DaoImpl.java, e.g. ScholenDaoImpl.java',
-      csharpShort: 'DbContext queries',
-      csharp: 'The code where you would write LINQ against your DbContext (or FromSqlRaw). Here the queries are HQL strings run through a Hibernate Session.',
-      trace: 'The DAO builds an HQL query with Session.createQuery(...) and runs it.' },
-    { id: 'hibernate', label: 'Hibernate / DB',
-      annotations: '@Entity, @Table, @Id / @IdClass, native Hibernate SessionFactory',
-      files: 'dbEntities/**, hibernate_VWO.cfg.xml',
-      csharpShort: 'EF Core',
-      csharp: 'EF Core itself: entities with [Table] / [Key], the model and connection setup. SessionFactory is roughly your configured DbContext factory.',
-      trace: 'Hibernate translates HQL to SQL, hits the database, and maps the row onto the @Entity class.' },
-  ];
-  var RESPONSE_TRACE = 'And back up: the entity travels up as Optional<Scholen>, and the controller answers ResponseEntity.ok(body), or notFound() if it was empty.';
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Escape text, then turn `backticks` into <code>.
+  function inlineCode(text) {
+    return escapeHtml(text || '').replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
+
+  // Pure: raw attributes -> layer objects (layers without a name are skipped).
+  function parseLayers(raw) {
+    var out = [];
+    (raw || []).forEach(function (r) {
+      var name = String(r.name || '').trim();
+      if (!name) return;
+      out.push({
+        id: 'layer-' + out.length,
+        name: name,
+        tag: String(r.tag || '').trim(),
+        trace: String(r.trace || '').trim(),
+        html: r.html || '',
+      });
+    });
+    return out;
+  }
 
   function renderLayers(layers) {
     return layers.map(function (l, i) {
-      return '<button class="layer-row" data-layer="' + l.id + '" aria-expanded="false">' +
-        '<span class="layer-index">' + (i + 1) + '</span><span class="layer-label">' + l.label + '</span>' +
-        (l.csharpShort ? '<span class="layer-cs">&asymp; ' + l.csharpShort + '</span>' : '') + '</button>';
+      return '<button type="button" class="layer-row" data-layer="' + l.id + '" aria-expanded="false">' +
+        '<span class="layer-index">' + (i + 1) + '</span><span class="layer-text"><span class="layer-label">' + escapeHtml(l.name) + '</span>' +
+        (l.tag ? '<span class="layer-tag">' + escapeHtml(l.tag) + '</span>' : '') + '</span></button>';
     }).join('');
-  }
-
-  function detailFor(layers, id, view) {
-    var layer = layers.filter(function (l) { return l.id === id; })[0];
-    if (!layer) return null;
-    return view === 'files' ? layer.files : layer.annotations;
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  // Wrap @Annotations, file paths and Foo.java names in <code>.
-  function codeify(text) {
-    return escapeHtml(text).replace(/(@[A-Za-z]+(?:\([^)]*\))?|[\w*./-]+\.(?:java|xml)|[\w]+\/\*\*|Session\.createQuery\(\.\.\.\)|\*RepositoryImpl)/g, '<code>$1</code>');
   }
 
   function detailCard(layer, index) {
     return '<div class="le-card" data-layer="' + layer.id + '">' +
-      '<div class="le-card-head"><span class="le-card-num">' + (index + 1) + '</span><span class="le-card-title">' + layer.label + '</span>' +
-      '<span class="le-card-cs">C# &asymp; ' + escapeHtml(layer.csharpShort) + '</span></div>' +
-      '<dl class="le-facts">' +
-      '<dt>Annotations</dt><dd>' + codeify(layer.annotations) + '</dd>' +
-      '<dt>Where in the repo</dt><dd>' + codeify(layer.files) + '</dd>' +
-      '<dt>In .NET terms</dt><dd>' + escapeHtml(layer.csharp) + '</dd>' +
-      '</dl></div>';
+      '<div class="le-card-head"><span class="le-card-num">' + (index + 1) + '</span><span class="le-card-title">' + escapeHtml(layer.name) + '</span>' +
+      (layer.tag ? '<span class="le-card-tag">' + escapeHtml(layer.tag) + '</span>' : '') + '</div>' +
+      '<div class="le-card-body">' + layer.html + '</div></div>';
   }
 
   function reduced() {
     try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
   }
 
-  function wire() {
-    var widget = document.querySelector('[data-layer-explorer]');
-    if (!widget) return;
-    var rows = widget.querySelector('.le-rows');
-    var detailEl = widget.querySelector('.le-detail');
-    if (!rows || !detailEl) return;
+  function wireOne(widget) {
+    var layerEls = Array.prototype.slice.call(widget.querySelectorAll(':scope > .layer'));
+    var layers = parseLayers(layerEls.map(function (el) {
+      return { name: el.getAttribute('data-name'), tag: el.getAttribute('data-tag'), trace: el.getAttribute('data-trace'), html: el.innerHTML.trim() };
+    }));
+    if (!layers.length) return;
+    layerEls.forEach(function (el) { el.remove(); });
     widget.classList.add('le-enhanced');
+    var entry = widget.getAttribute('data-entry');
+    var exit = widget.getAttribute('data-exit');
+    var traceLabel = widget.getAttribute('data-trace-label') || 'Trace a request';
+    var returnText = widget.getAttribute('data-return') || 'And back up: the response travels through every layer on its way out.';
 
-    // Build the diagram around the existing .le-rows container.
     var layout = document.createElement('div');
     layout.className = 'le-layout';
     var diagram = document.createElement('div');
     diagram.className = 'le-diagram';
-    var client = document.createElement('div');
-    client.className = 'le-endpoint le-client';
-    client.innerHTML = '<span class="le-ep-dot"></span>HTTP request <code>GET</code> one school';
+    if (entry) {
+      var top = document.createElement('div');
+      top.className = 'le-endpoint le-entry';
+      top.innerHTML = '<span class="le-ep-dot" aria-hidden="true"></span>' + inlineCode(entry);
+      diagram.appendChild(top);
+    }
     var stack = document.createElement('div');
     stack.className = 'le-stack';
     var rail = document.createElement('div');
     rail.className = 'le-rail';
     rail.innerHTML = '<span class="le-dot" aria-hidden="true"></span>';
-    var db = document.createElement('div');
-    db.className = 'le-endpoint le-db';
-    db.innerHTML = '<span class="le-db-icon" aria-hidden="true"></span>Database';
-    rows.parentNode.insertBefore(layout, rows);
+    var rows = document.createElement('div');
+    rows.className = 'le-rows';
+    rows.setAttribute('role', 'group');
+    rows.setAttribute('aria-label', 'Layers');
+    rows.innerHTML = renderLayers(layers);
     stack.appendChild(rail);
     stack.appendChild(rows);
-    diagram.appendChild(client);
     diagram.appendChild(stack);
-    diagram.appendChild(db);
+    if (exit) {
+      var bottom = document.createElement('div');
+      bottom.className = 'le-endpoint le-exit';
+      bottom.innerHTML = '<span class="le-db-icon" aria-hidden="true"></span>' + inlineCode(exit);
+      diagram.appendChild(bottom);
+    }
     layout.appendChild(diagram);
     var side = document.createElement('div');
     side.className = 'le-side';
     var traceBar = document.createElement('div');
     traceBar.className = 'le-trace';
-    traceBar.innerHTML = '<button type="button" class="le-trace-btn"><span class="le-play" aria-hidden="true"></span>Trace a request</button>' +
-      '<p class="le-caption" aria-live="polite">Click a layer to inspect it, or trace a request through all four.</p>';
+    traceBar.innerHTML = '<button type="button" class="le-trace-btn"></button>' +
+      '<p class="le-caption" aria-live="polite"></p>';
+    var detailEl = document.createElement('div');
+    detailEl.className = 'le-detail';
+    detailEl.setAttribute('aria-live', 'polite');
     side.appendChild(traceBar);
     side.appendChild(detailEl);
     layout.appendChild(side);
+    widget.appendChild(layout);
 
-    rows.innerHTML = renderLayers(LAYERS);
     var dot = rail.querySelector('.le-dot');
     var caption = traceBar.querySelector('.le-caption');
     var traceBtn = traceBar.querySelector('.le-trace-btn');
     var tracing = false, timers = [];
+    function setBtn(kind, text) {
+      traceBtn.innerHTML = '<span class="le-' + kind + '" aria-hidden="true"></span>' + escapeHtml(text);
+    }
+    setBtn('play', traceLabel);
+    caption.textContent = 'Click a layer to inspect it, or trace a request through all ' + layers.length + '.';
 
     function rowEls() { return Array.prototype.slice.call(rows.querySelectorAll('.layer-row')); }
 
-    function showDetail(id) {
-      var idx = 0;
-      rowEls().forEach(function (btn, i) {
-        var on = btn.getAttribute('data-layer') === id;
-        if (on) idx = i;
-        btn.setAttribute('aria-expanded', on ? 'true' : 'false');
-      });
-      detailEl.innerHTML = detailCard(LAYERS[idx], idx);
-      var card = detailEl.firstChild;
-      card.classList.add('le-pop');
+    function showDetail(idx) {
+      rowEls().forEach(function (btn, i) { btn.setAttribute('aria-expanded', i === idx ? 'true' : 'false'); });
+      detailEl.innerHTML = detailCard(layers[idx], idx);
+      detailEl.firstChild.classList.add('le-pop');
     }
 
     function moveDotTo(i) {
       var r = rowEls()[i];
-      if (!r) return;
-      var top = r.offsetTop + r.offsetHeight / 2;
-      dot.style.top = top + 'px';
+      if (r) dot.style.top = (r.offsetTop + r.offsetHeight / 2) + 'px';
     }
 
     function clearTrace() {
@@ -139,7 +145,7 @@
       tracing = false;
       widget.classList.remove('le-tracing', 'le-returning');
       rowEls().forEach(function (r) { r.classList.remove('le-active', 'le-visited'); });
-      traceBtn.innerHTML = '<span class="le-play" aria-hidden="true"></span>Trace a request';
+      setBtn('play', traceLabel);
     }
 
     function trace() {
@@ -147,33 +153,33 @@
       clearTrace();
       tracing = true;
       widget.classList.add('le-tracing');
-      traceBtn.innerHTML = '<span class="le-stop" aria-hidden="true"></span>Stop';
+      setBtn('stop', 'Stop');
       var stepMs = reduced() ? 2600 : 2300;
       var els = rowEls();
       dot.style.transition = 'none';
       dot.style.top = '-14px';
       void dot.offsetWidth;
       dot.style.transition = '';
-      caption.textContent = 'An HTTP GET for one school arrives at the application...';
-      LAYERS.forEach(function (l, i) {
+      caption.innerHTML = entry ? inlineCode(entry) + ' arrives&hellip;' : 'Starting at the top&hellip;';
+      layers.forEach(function (l, i) {
         timers.push(setTimeout(function () {
           els.forEach(function (r, j) { r.classList.toggle('le-active', j === i); if (j < i) r.classList.add('le-visited'); });
           moveDotTo(i);
-          showDetail(l.id);
-          caption.innerHTML = '<strong>' + (i + 1) + '. ' + l.label + ':</strong> ' + codeify(l.trace);
+          showDetail(i);
+          caption.innerHTML = '<strong>' + (i + 1) + '. ' + escapeHtml(l.name) + ':</strong> ' + inlineCode(l.trace || l.tag || '');
         }, 500 + i * stepMs));
       });
-      var back = 500 + LAYERS.length * stepMs;
+      var back = 500 + layers.length * stepMs;
       timers.push(setTimeout(function () {
         widget.classList.add('le-returning');
         els.forEach(function (r) { r.classList.remove('le-active'); r.classList.add('le-visited'); });
         dot.style.top = '-14px';
-        caption.innerHTML = '<strong>Response:</strong> ' + codeify(RESPONSE_TRACE);
+        caption.innerHTML = '<strong>Response:</strong> ' + inlineCode(returnText);
       }, back));
       timers.push(setTimeout(function () {
         tracing = false;
         widget.classList.remove('le-tracing', 'le-returning');
-        traceBtn.innerHTML = '<span class="le-play" aria-hidden="true"></span>Trace again';
+        setBtn('play', 'Trace again');
       }, back + 1800));
     }
 
@@ -181,25 +187,33 @@
       var btn = e.target.closest('.layer-row');
       if (!btn) return;
       if (tracing) clearTrace();
-      showDetail(btn.getAttribute('data-layer'));
       var i = rowEls().indexOf(btn);
+      showDetail(i);
       moveDotTo(i);
-      caption.textContent = 'Layer ' + (i + 1) + ' of 4. Hit "Trace a request" to see them work together.';
+      caption.textContent = 'Layer ' + (i + 1) + ' of ' + layers.length + '. Hit "' + traceLabel + '" to see them work together.';
     });
     rows.addEventListener('keydown', function (e) {
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
       var els = rowEls();
       var i = els.indexOf(document.activeElement);
       if (i === -1) return;
+      var n;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') n = Math.min(els.length - 1, i + 1);
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') n = Math.max(0, i - 1);
+      else if (e.key === 'Home') n = 0;
+      else if (e.key === 'End') n = els.length - 1;
+      else return;
       e.preventDefault();
-      var n = els[Math.max(0, Math.min(els.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
-      n.focus();
-      n.click();
+      els[n].focus();
+      els[n].click();
     });
     traceBtn.addEventListener('click', trace);
 
-    showDetail(LAYERS[0].id);
-    dot.style.top = '-14px';
+    showDetail(0);
+    moveDotTo(0);
+  }
+
+  function wire() {
+    document.querySelectorAll('[data-layer-explorer]').forEach(wireOne);
   }
 
   if (typeof document !== 'undefined') {
@@ -207,6 +221,6 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { LAYERS: LAYERS, renderLayers: renderLayers, detailFor: detailFor, codeify: codeify };
+    module.exports = { parseLayers: parseLayers, renderLayers: renderLayers, detailCard: detailCard, inlineCode: inlineCode };
   }
 })();

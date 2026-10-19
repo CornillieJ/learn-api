@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isValidLevel } = require('./levels.js');
+const { isValidLevel, storageKey } = require('./levels.js');
 
 test('accepts the three known levels', () => {
   assert.equal(isValidLevel('overview'), true);
@@ -15,6 +15,16 @@ test('rejects anything else, including corrupted storage values', () => {
   assert.equal(isValidLevel(''), false);
 });
 
+test('the storage key uses BookConfig.storagePrefix, with a default', () => {
+  assert.equal(storageKey(), 'mybook:level');
+  global.window = { BookConfig: { storagePrefix: 'git-guide' } };
+  try {
+    assert.equal(storageKey(), 'git-guide:level');
+  } finally {
+    delete global.window;
+  }
+});
+
 test('falls back to overview and never throws when localStorage is unavailable', () => {
   const { getStoredLevel, setStoredLevel } = require('./levels.js');
   const original = global.localStorage;
@@ -22,9 +32,12 @@ test('falls back to overview and never throws when localStorage is unavailable',
     getItem() { throw new Error('blocked'); },
     setItem() { throw new Error('blocked'); },
   };
-  assert.doesNotThrow(() => setStoredLevel('deep'));
-  assert.equal(getStoredLevel(), 'overview');
-  global.localStorage = original;
+  try {
+    assert.doesNotThrow(() => setStoredLevel('deep'));
+    assert.equal(getStoredLevel(), 'overview');
+  } finally {
+    global.localStorage = original;
+  }
 });
 
 test('finds the level a hidden block belongs to from its classes', () => {
@@ -41,4 +54,11 @@ test('number keys 1/2/3 map to the three levels, anything else to null', () => {
   assert.equal(levelForKey('3'), 'drill');
   assert.equal(levelForKey('4'), null);
   assert.equal(levelForKey('a'), null);
+});
+
+test('a sidebar sub-heading dims only when it belongs to a level that is not active', () => {
+  const { isInactiveHeading } = require('./levels.js');
+  assert.equal(isInactiveHeading('drill', 'overview'), true);
+  assert.equal(isInactiveHeading('drill', 'drill'), false);
+  assert.equal(isInactiveHeading(null, 'overview'), false, 'ungated headings are never dimmed');
 });

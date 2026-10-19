@@ -1,38 +1,75 @@
+// Progress you can feel, stored per browser in localStorage:
+// - `<button type="button" data-mark-done>Mark this chapter done</button>`
+//   toggles the chapter's done state. It is moved into the fixed
+//   `.level-tabs` bar (when the page has one) so it is always reachable.
+// - Sidebar links of done chapters get a small ✓ badge.
+// - `.qa` self-checks with `<div class="mark"><button>` get "Mark as known".
+// - Ticks in `ul.checklist` are remembered per page.
+// Fires `book:done-changed` ({ slug, done }) on document when a chapter flips.
 (function () {
-  var PREFIX = 'learn-api:done:';
-  var KNOWN_PREFIX = 'learn-api:known:';
+  function prefix() {
+    var c = typeof window !== 'undefined' && window.BookConfig;
+    return (c && c.storagePrefix) || 'mybook';
+  }
 
-  function chapterKey(slug) { return PREFIX + slug; }
-
-  function knownKey(slug, index) { return KNOWN_PREFIX + slug + ':' + index; }
+  function chapterKey(slug) { return prefix() + ':done:' + slug; }
+  function knownKey(slug, index) { return prefix() + ':known:' + slug + ':' + index; }
+  function checkKey(slug, index) { return prefix() + ':check:' + slug + ':' + index; }
+  function trackedKey() { return prefix() + ':tracked'; }
 
   function slugFromHref(href) {
-    return href.replace(/^\.?\//, '').replace(/^.*\//, '').replace(/#.*$/, '').replace(/\.html$/, '');
+    var s = String(href || '').replace(/[?#].*$/, '').replace(/^\.?\//, '').replace(/^.*\//, '').replace(/\.html$/, '');
+    return s || 'index';
   }
 
-  function isDone(slug) {
-    try { return localStorage.getItem(chapterKey(slug)) === '1'; } catch (e) { return false; }
+  function getFlag(key) {
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+  }
+  function setFlag(key, on) {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) {}
   }
 
-  function setDone(slug, done) {
-    try { localStorage.setItem(chapterKey(slug), done ? '1' : '0'); } catch (e) {}
+  function isDone(slug) { return getFlag(chapterKey(slug)); }
+  function setDone(slug, done) { setFlag(chapterKey(slug), done); }
+  function isKnown(slug, index) { return getFlag(knownKey(slug, index)); }
+  function setKnown(slug, index, known) { setFlag(knownKey(slug, index), known); }
+
+  // Which chapters count towards "N of M done"? First non-empty list wins:
+  // a progress map on this page, BookConfig.trackedChapters, the list the
+  // last progress map the reader saw stored. Null means "don't count".
+  function resolveTracked(pageSlugs, configSlugs, storedSlugs) {
+    var lists = [pageSlugs, configSlugs, storedSlugs];
+    for (var i = 0; i < lists.length; i++) {
+      if (Array.isArray(lists[i]) && lists[i].length) return lists[i].slice();
+    }
+    return null;
   }
 
-  function isKnown(slug, index) {
-    try { return localStorage.getItem(knownKey(slug, index)) === '1'; } catch (e) { return false; }
+  function readStoredTracked() {
+    try {
+      var v = JSON.parse(localStorage.getItem(trackedKey()) || 'null');
+      return Array.isArray(v) ? v : null;
+    } catch (e) { return null; }
   }
 
-  function setKnown(slug, index, known) {
-    try { localStorage.setItem(knownKey(slug, index), known ? '1' : '0'); } catch (e) {}
+  function pageTracked() {
+    var map = document.querySelector('[data-progress-map]');
+    if (!map) return null;
+    var slugs = [];
+    map.querySelectorAll('li a[href]').forEach(function (a) { slugs.push(slugFromHref(a.getAttribute('href'))); });
+    return slugs;
   }
 
-  var STEP_SLUGS = [
-    'step-1-java-syntax', 'step-2-maven', 'step-3-spring-mvc-war', 'step-4-persistence-hibernate',
-    'step-5-spring-security', 'step-6-lombok', 'step-7-ecosystem-audio',
-  ];
+  function trackedChapters() {
+    var c = window.BookConfig || {};
+    return resolveTracked(pageTracked(), c.trackedChapters, readStoredTracked());
+  }
 
-  function countDoneSteps() {
-    return STEP_SLUGS.filter(isDone).length;
+  // Toast text after marking a chapter done.
+  function doneMessage(doneCount, total) {
+    if (!total) return 'Chapter done!';
+    if (doneCount >= total) return 'All ' + total + ' chapters done. You finished the book!';
+    return 'Chapter done! ' + doneCount + ' of ' + total + ' complete.';
   }
 
   function currentSlug() { return slugFromHref(location.pathname); }
@@ -45,7 +82,8 @@
         if (!mark) {
           mark = document.createElement('span');
           mark.className = 'done-mark';
-          mark.textContent = ' ✓';
+          mark.setAttribute('aria-label', 'done');
+          mark.textContent = '✓';
           a.appendChild(mark);
         }
       } else if (mark) {
@@ -57,33 +95,35 @@
   function wireButton() {
     var btn = document.querySelector('[data-mark-done]');
     if (!btn) return;
-    // Relocate into the sticky level-tabs bar so it's reachable regardless
-    // of scroll position or which level (Overview/Deep/Drilling) is active,
-    // instead of sitting buried at the bottom of the Drilling level only.
+    // Relocate into the fixed level-tabs bar so it's reachable regardless of
+    // scroll position or which level is active.
     var tabs = document.querySelector('.level-tabs');
     if (tabs) tabs.appendChild(btn);
     var slug = currentSlug();
+    var idle = btn.textContent.trim() || 'Mark this chapter done';
+    var doneText = btn.getAttribute('data-done-text') || '✓ Marked done';
+    btn.setAttribute('title', idle);
     function render() {
       var done = isDone(slug);
       btn.setAttribute('aria-pressed', done ? 'true' : 'false');
-      btn.textContent = done ? '✓ Marked done' : 'Mark this step done';
+      btn.textContent = done ? doneText : idle;
     }
     btn.addEventListener('click', function () {
       var nowDone = !isDone(slug);
       setDone(slug, nowDone);
       render();
       syncSidebar();
-      document.dispatchEvent(new CustomEvent('learn-api:done-changed', { detail: { slug: slug, done: nowDone } }));
-      if (nowDone) {
-        btn.classList.remove('just-done');
-        void btn.offsetWidth;
-        btn.classList.add('just-done');
-        var api = window.LearnApi;
-        var count = countDoneSteps();
-        if (api && api.celebrate) {
-          api.celebrate(btn, { message: count === STEP_SLUGS.length ? 'All 7 steps done. You finished the path!' : 'Step done! ' + count + ' of ' + STEP_SLUGS.length + ' steps complete.', count: count === STEP_SLUGS.length ? 160 : 80 });
-        }
-      }
+      document.dispatchEvent(new CustomEvent('book:done-changed', { detail: { slug: slug, done: nowDone } }));
+      if (!nowDone) return;
+      btn.classList.remove('just-done');
+      void btn.offsetWidth;
+      btn.classList.add('just-done');
+      var tracked = trackedChapters();
+      var count = tracked ? tracked.filter(isDone).length : 0;
+      var total = tracked ? tracked.length : 0;
+      var all = total > 0 && count >= total;
+      var api = window.Book;
+      if (api && api.celebrate) api.celebrate(btn, { message: doneMessage(count, total), count: all ? 160 : 80 });
     });
     render();
   }
@@ -107,27 +147,41 @@
     });
   }
 
+  function wireChecklists() {
+    var slug = currentSlug();
+    document.querySelectorAll('ul.checklist input[type="checkbox"]').forEach(function (box, index) {
+      if (getFlag(checkKey(slug, index))) box.checked = true;
+      box.addEventListener('change', function () { setFlag(checkKey(slug, index), box.checked); });
+    });
+  }
+
   function init() {
+    if (currentSlug() === 'print') return; // mdBook's all-chapters print page
     wireButton();
     wireKnownButtons();
+    wireChecklists();
     syncSidebar();
   }
 
   if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', init);
+    // Another tab can change done-state; keep the sidebar in step.
+    window.addEventListener('storage', function () { syncSidebar(); });
   }
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       chapterKey: chapterKey,
       knownKey: knownKey,
+      checkKey: checkKey,
+      trackedKey: trackedKey,
       slugFromHref: slugFromHref,
       isDone: isDone,
       setDone: setDone,
       isKnown: isKnown,
       setKnown: setKnown,
-      STEP_SLUGS: STEP_SLUGS,
-      countDoneSteps: countDoneSteps,
+      resolveTracked: resolveTracked,
+      doneMessage: doneMessage,
     };
   }
 })();

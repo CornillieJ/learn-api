@@ -1,7 +1,12 @@
-// Flashcard decks: <div class="flashcards" data-flashcards><div class="card">
-// <div class="front">..</div><div class="back">..</div></div>...</div>
+// Flashcard decks:
+//   <div class="flashcards" data-flashcards data-front-label="Term" data-back-label="Meaning">
+//   <div class="card"><div class="front">..</div><div class="back">..</div></div>
+//   ...
+//   </div>
 // One card at a time; flip with click/Space; "Again" re-queues, "Got it"
-// removes the card from the round.
+// removes the card from the round. data-front-label / data-back-label
+// (default "Question" / "Answer") and data-title (default "Flashcards")
+// are optional.
 (function () {
   function shuffle(arr, rand) {
     rand = rand || Math.random;
@@ -35,6 +40,18 @@
 
   function progressLabel(deck) { return deck.known.length + ' / ' + deck.total; }
 
+  // Pure: the two side labels, with defaults for missing/blank attributes.
+  function sideLabels(front, back) {
+    return {
+      front: (front && String(front).trim()) || 'Question',
+      back: (back && String(back).trim()) || 'Answer',
+    };
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   function el(tag, cls, html) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -50,7 +67,9 @@
       return { front: f ? f.innerHTML : '', back: b ? b.innerHTML : '' };
     });
     if (!cards.length) return;
-    var id = 'fc-' + (deckCount++);
+    deckCount++;
+    var labels = sideLabels(root.getAttribute('data-front-label'), root.getAttribute('data-back-label'));
+    var title = root.getAttribute('data-title') || 'Flashcards';
     root.innerHTML = '';
     root.classList.add('fc-ready');
     root.setAttribute('tabindex', '0');
@@ -58,7 +77,7 @@
     root.setAttribute('aria-label', 'Flashcards: ' + cards.length + ' cards. Space flips, right arrow for got it, left arrow for again.');
 
     var top = el('div', 'fc-top');
-    top.innerHTML = '<span class="fc-title">Flashcards</span>' +
+    top.innerHTML = '<span class="fc-title">' + escapeHtml(title) + '</span>' +
       '<span class="fc-progress"><span class="fc-bar"><span class="fc-fill"></span></span><span class="fc-count"></span></span>' +
       '<span class="fc-tools"><button type="button" class="fc-shuffle" title="Shuffle (S)">Shuffle</button>' +
       '<button type="button" class="fc-restart" title="Restart (R)">Restart</button></span>';
@@ -68,8 +87,8 @@
     card.setAttribute('tabindex', '-1');
     card.setAttribute('aria-pressed', 'false');
     card.innerHTML = '<div class="fc-inner">' +
-      '<div class="fc-face fc-front"><span class="fc-side">C# / .NET</span><div class="fc-body"></div><span class="fc-tap">tap to flip</span></div>' +
-      '<div class="fc-face fc-back"><span class="fc-side">Java / Spring</span><div class="fc-body"></div></div></div>';
+      '<div class="fc-face fc-front"><span class="fc-side">' + escapeHtml(labels.front) + '</span><div class="fc-body"></div><span class="fc-tap">tap to flip</span></div>' +
+      '<div class="fc-face fc-back"><span class="fc-side">' + escapeHtml(labels.back) + '</span><div class="fc-body"></div></div></div>';
     stage.appendChild(card);
     var actions = el('div', 'fc-actions');
     actions.innerHTML = '<button type="button" class="fc-again"><kbd>&larr;</kbd> Again</button>' +
@@ -100,7 +119,7 @@
           '<p>' + deck.total + ' cards, ' + (flawless ? 'no repeats needed.' : deck.again + ' repeat' + (deck.again === 1 ? '' : 's') + ' along the way.') + '</p>' +
           '<button type="button" class="fc-restart2">Go again (shuffled)</button>';
         done.querySelector('.fc-restart2').addEventListener('click', function () { restart(true); });
-        var api = window.LearnApi;
+        var api = window.Book;
         if (api && api.celebrate) api.celebrate(done, { message: flawless ? 'Flashcards: clean sweep!' : 'Deck complete!' });
         live.textContent = 'Deck complete.';
         return;
@@ -144,7 +163,7 @@
       render(true);
       root.focus({ preventScroll: true });
     }
-    function reduced() { return window.LearnApi && window.LearnApi.prefersReducedMotion && window.LearnApi.prefersReducedMotion(); }
+    function reduced() { return window.Book && window.Book.prefersReducedMotion && window.Book.prefersReducedMotion(); }
 
     card.addEventListener('click', flip);
     actions.querySelector('.fc-flip').addEventListener('click', flip);
@@ -187,7 +206,7 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       shuffle: shuffle, makeDeck: makeDeck, current: current, gotIt: gotIt, again: again,
-      isFinished: isFinished, progressLabel: progressLabel,
+      isFinished: isFinished, progressLabel: progressLabel, sideLabels: sideLabels,
     };
   }
 })();

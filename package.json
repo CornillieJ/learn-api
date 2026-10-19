@@ -1,0 +1,8 @@
+{
+  "name": "mdbook-template",
+  "private": true,
+  "description": "Unit tests for the mdBook theme widgets in theme/. No dependencies.",
+  "scripts": {
+    "test": "node --test theme/*.test.js"
+  }
+}

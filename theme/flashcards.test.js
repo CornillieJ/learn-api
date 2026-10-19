@@ -45,3 +45,9 @@ test('a deck can start from a custom order', () => {
   const d = fc.makeDeck(3, [2, 0, 1]);
   assert.equal(fc.current(d), 2);
 });
+
+test('side labels come from data attributes, with Question/Answer defaults', () => {
+  assert.deepEqual(fc.sideLabels('Term', 'Meaning'), { front: 'Term', back: 'Meaning' });
+  assert.deepEqual(fc.sideLabels(null, undefined), { front: 'Question', back: 'Answer' });
+  assert.deepEqual(fc.sideLabels('  ', 'Git'), { front: 'Question', back: 'Git' });
+});

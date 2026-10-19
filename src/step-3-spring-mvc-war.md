@@ -53,13 +53,23 @@ public class SchoolController implements be.vwo.common.restAPI.controllers.Schoo
 Click through the layers below to see which annotations and files
 belong to each one.
 
-<div class="layer-explorer" data-layer-explorer>
-  <div class="le-view-toggle">
-    <button data-view="annotations" aria-pressed="true">Annotations</button>
-    <button data-view="files">File locations</button>
-  </div>
-  <div class="le-rows"></div>
-  <div class="le-detail" aria-live="polite"></div>
+<div class="layer-explorer" data-layer-explorer data-entry="HTTP request" data-exit="MariaDB">
+<div class="layer" data-name="Controller" data-tag="restAPI/controllers/**" data-trace="The `@RestController` matches the URL and calls the repository.">
+<p><code>@RestController</code>, <code>@RequestMapping</code>, <code>@GetMapping</code>/<code>@PostMapping</code>, <code>@PathVariable</code>, <code>@RequestBody</code>.</p>
+<p>For example <code>controllers/v2/SchoolController.java</code>.</p>
+</div>
+<div class="layer" data-name="Repository" data-tag="*RepositoryImpl" data-trace="The repository delegates to one or more DAOs.">
+<p><code>@Repository</code> with constructor <code>@Autowired</code> injection of the DAOs, plus <code>@Transactional</code> on the methods that span several DAO calls.</p>
+<p>For example <code>restAPI/repositories/ScholenRepositoryImpl.java</code>.</p>
+</div>
+<div class="layer" data-name="DAO" data-tag="dao/impl/*DaoImpl" data-trace="The DAO runs hand-written HQL inside a `@Transactional` session.">
+<p>Hand-written HQL via <code>Session.createQuery(...)</code>, not Spring Data JPA. <code>@Transactional(value = transactionR|transactionRW)</code> picks the read-only or read-write session factory.</p>
+<p>For example <code>dao/impl/ScholenDaoImpl.java</code>.</p>
+</div>
+<div class="layer" data-name="Hibernate / DB" data-tag="dbEntities/**" data-trace="Hibernate maps the rows onto `@Entity` classes.">
+<p><code>@Entity</code>, <code>@Table</code>, <code>@Id</code>/<code>@IdClass</code>, on a native Hibernate <code>SessionFactory</code>.</p>
+<p>The mapped classes are listed in <code>hibernate_VWO.cfg.xml</code>.</p>
+</div>
 </div>
 
 </div>

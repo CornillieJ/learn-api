@@ -1,7 +1,8 @@
+// "On this page": a fixed mini table of contents in the left gutter, built
+// from the page's visible h2/h3 headings (at least two), with scroll-spy
+// highlighting. Rebuilt when the level changes, hidden when there is no room.
 (function () {
-  // Flat, ordered list — matches https://github.com/CornillieJ/sa's guide
-  // nav (section.chapter + data-title, numbered 01/02/...). Our headings
-  // are all one level (h3) in practice, so no depth/indentation to track.
+  // Flat, ordered, numbered list (01, 02, ...): no depth/indentation.
   function headingsToToc(headings) {
     var withIds = headings.filter(function (h) { return h.id; });
     if (withIds.length < 2) return [];
@@ -16,9 +17,8 @@
   // Returns -1 if every heading is still below the line.
   //
   // This is deliberately NOT an IntersectionObserver watching the headings
-  // themselves: sa's guide (https://github.com/CornillieJ/sa) observes
-  // whole `section.chapter` blocks, which are tall enough to overlap its
-  // trigger band no matter where a reader lands. Our headings are single
+  // themselves. Observing whole sections works because they are tall enough
+  // to overlap a trigger band wherever a reader lands, but headings are single
   // thin lines (~25px) — a click-triggered jump lands one at/near the very
   // top of the viewport, which never overlaps a band that starts lower
   // down, so the equivalent IntersectionObserver setup never fires on
@@ -136,7 +136,7 @@
 
   if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', build);
-    document.addEventListener('learn-api:level-changed', build);
+    document.addEventListener('book:level-changed', build);
     var repositionCurrent = function () {
       var nav = document.body.querySelector('nav.toc');
       var main = document.querySelector('#mdbook-content main');

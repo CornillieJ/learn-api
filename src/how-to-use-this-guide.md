@@ -41,10 +41,14 @@ Drag the sliders. The plan below is a heuristic built from the guide's
 own suggested pacing (steps 1-2 in a weekend, step 3 over a week, then
 4-6 alongside real reading of the repo), not a rule.
 
-<div class="pace-chooser" data-pace-chooser>
-  <div class="pc-row"><label for="pcHours">Hours per week</label><input type="range" id="pcHours" min="1" max="15" value="4"><output></output></div>
-  <div class="pc-row"><label for="pcWeeks">Weeks available</label><input type="range" id="pcWeeks" min="1" max="12" value="4"><output></output></div>
-  <div class="pc-result" aria-live="polite"></div>
+<div class="pace-chooser" data-pace-chooser data-max-hours="15" data-max-weeks="12" data-default-hours="4" data-default-weeks="4">
+<ul class="pc-tasks">
+<li data-hours="6" data-short="Steps 1-2">Steps 1-2: Java syntax + Maven</li>
+<li data-hours="8" data-short="Step 3">Step 3: Spring core, MVC, WAR</li>
+<li data-hours="6" data-short="Step 4">Step 4: Persistence (Hibernate &amp; HQL)</li>
+<li data-hours="3" data-short="Step 5">Step 5: Spring Security</li>
+<li data-hours="2" data-short="Step 6">Step 6: Lombok</li>
+</ul>
 </div>
 
 Step 7 (ecosystem podcasts) is deliberately left out of the plan above:

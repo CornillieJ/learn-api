@@ -1,6 +1,17 @@
-// Multiple-choice quizzes: <div class="quiz" data-quiz> ... </div>
+// Multiple-choice quizzes:
+//   <div class="quiz" data-quiz>
+//   <p class="quiz-q">Question?</p>
+//   <ol class="quiz-options">
+//   <li>Wrong<p class="quiz-whynot">Why this is wrong.</p></li>
+//   <li data-correct>Right<p class="quiz-why">Why this is right.</p></li>
+//   </ol>
+//   <p class="quiz-explain">Why (shown once solved).</p>
+//   </div>
 // Options become buttons with instant feedback, a wrong pick can be retried,
-// and a per-page scoreboard counts first-try answers.
+// and a per-page scoreboard counts first-try answers. Letter keys (A, B, ...)
+// pick an option while focus is inside a quiz. An option's .quiz-why/.quiz-whynot
+// is pulled out of the button; it stays hidden until that option is picked, and
+// once the question is solved every option's reasoning becomes visible.
 (function () {
   var LETTERS = 'ABCDEFGH';
 
@@ -102,7 +113,7 @@
         banner.querySelector('.qr-again').addEventListener('click', resetAll);
         if (s.perfect && !celebrated) {
           celebrated = true;
-          var api = window.LearnApi;
+          var api = window.Book;
           if (api && api.celebrate) api.celebrate(banner, { message: 'Perfect quiz score!', count: 110 });
         }
       } else {
@@ -117,6 +128,7 @@
         b.classList.remove('is-correct', 'is-wrong', 'reveal');
         b.removeAttribute('aria-pressed');
       });
+      q.querySelectorAll('.quiz-options > li').forEach(function (li) { li.classList.remove('wy-shown'); });
       var fb = q.querySelector('.quiz-feedback');
       if (fb) fb.textContent = '';
     }
@@ -159,12 +171,19 @@
         letter.className = 'quiz-letter';
         letter.setAttribute('aria-hidden', 'true');
         letter.textContent = LETTERS[oi] || oi + 1;
+        var why = li.querySelector('.quiz-why');
+        var whyNot = li.querySelector('.quiz-whynot');
+        if (why) why.parentNode.removeChild(why);
+        if (whyNot) whyNot.parentNode.removeChild(whyNot);
+
         var body = document.createElement('span');
         body.className = 'quiz-opt-text';
         while (li.firstChild) body.appendChild(li.firstChild);
         btn.appendChild(letter);
         btn.appendChild(body);
         li.appendChild(btn);
+        if (why) li.appendChild(why);
+        if (whyNot) li.appendChild(whyNot);
         btn.addEventListener('click', function () { pick(btn, correct); });
       });
 
@@ -172,18 +191,20 @@
         if (q.classList.contains('solved')) return;
         results[qi] = nextResult(results[qi], correct);
         btn.setAttribute('aria-pressed', 'true');
+        btn.closest('li').classList.add('wy-shown');
         if (correct) {
           btn.classList.add('is-correct');
           q.classList.remove('missed');
           q.classList.add('solved');
           q.querySelectorAll('.quiz-opt').forEach(function (b) { b.disabled = true; });
+          q.querySelectorAll('.quiz-options > li').forEach(function (li) { li.classList.add('wy-shown'); });
           feedback.textContent = results[qi] === 'first' ? pickOne(['Correct!', 'Spot on.', 'Yes! Nailed it.', 'Exactly right.']) : 'Got it on the retry.';
           feedback.setAttribute('data-kind', 'ok');
         } else {
           btn.classList.add('is-wrong');
           btn.disabled = true;
           q.classList.add('missed');
-          feedback.textContent = pickOne(['Not quite, try another one.', 'Close, but no. Have another go.', 'Nope. Think about how the repo does it.']);
+          feedback.textContent = pickOne(['Not quite, try another one.', 'Close, but no. Have another go.', 'Nope. Re-read the question and try again.']);
           feedback.setAttribute('data-kind', 'bad');
           var left = q.querySelectorAll('.quiz-opt:not([disabled])');
           if (left.length === 1) { left[0].focus(); }
