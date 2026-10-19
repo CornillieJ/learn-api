@@ -48,10 +48,10 @@ Every chapter uses the same three tabs as the rest of this book:
 |---|---|---|---|
 | 12 | Persons and responsables | Composite keys with `@IdClass`, `equals`/`hashCode`, enums in entities and request parameters, HQL joins | `Functies.java`, `FunctiesDaoImpl.java`, `Configuration.java` |
 | 13 | Registering a school for a year | The school year helper, `@RequestBody`, bean validation, writing in a read-write transaction | `WedstrijdinfoVwo.java`, `VwoParticipationController.java`, `General.java` |
-| 14 | Enrolling pupils | `@MappedSuperclass`, request models, bulk inserts, counting with HQL and `SELECT new` | `LeerlingEersteRonde.java`, `VwoParticipant.java`, `LeerlingVWODaoImpl.java` |
+| 14 | Enrolling pupils | `@MappedSuperclass`, request models, bulk inserts, counting with `GROUP BY` into `Object[]` rows | `LeerlingEersteRonde.java`, `VwoParticipant.java`, `LeerlingVWODaoImpl.java` |
 | 15 | The answer key and the round dates | Composite keys again, `set` columns, query parameters with defaults | `Antwoorden.java`, `AnswerStringController.java`, `DatesController.java` |
 | 16 | Scoring and selection | A repository method spanning several DAOs in one transaction, streams, a view mapped as an `@Immutable` entity | `LeerlingTweedeRondeFull.java`, `KangoeroePoolsTemporaryAnswersRepositoryImpl.java` |
-| 17 | Archiving a year | History tables, choosing the query by year | `LeerlingVWODaoImpl.java` (`Historiek_*` queries) |
+| 17 | Archiving a year | History tables, native SQL next to HQL, choosing the query by year | `LeerlingVWODaoImpl.java` (`Historiek_*` queries) |
 
 </div>
 
