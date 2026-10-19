@@ -38,7 +38,7 @@
 - [Introduction](build-guide/introduction.md)
 - [Design](build-guide/design.md)
 - [Roadmap](build-guide/roadmap.md)
-- [1. The toolbox]()
+- [1. The toolbox](build-guide/build-01-toolbox.md)
 - [2. An empty Maven WAR project]()
 - [3. The application class]()
 - [4. Running on Tomcat]()
