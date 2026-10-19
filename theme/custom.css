@@ -801,3 +801,119 @@ html.bk-print .level-tabs, html.bk-print [data-mark-done] { display: none; }
   /* .pc-row stacking on narrow widths: container query in interactive.css. */
   .qa .ans { padding-left: 16px; }
 }
+
+/* ---------- Codebase walkthrough wrapper pages ------------------------- */
+.wt-intro {
+  margin: 0 0 20px;
+  font-size: 16.5px;
+}
+.wt-kicker {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 0 0 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font: 600 11.5px/1.5 var(--font-mono);
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--bk-accent-2);
+  background: color-mix(in srgb, var(--bk-accent-2) 12%, transparent);
+}
+.wt-kicker::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 25%, transparent); animation: wt-pulse 2s ease-in-out infinite; }
+.wt-tips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  list-style: none; padding: 0; margin: 14px 0 0;
+}
+.wt-tips li {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--bk-border);
+  background: var(--bk-surface);
+  font-size: 13.5px; color: var(--bk-text-muted);
+}
+.wt-frame {
+  margin: 0 0 24px;
+  border-radius: calc(var(--bk-radius) + 4px);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid color-mix(in srgb, #A855F7 35%, var(--bk-border));
+  box-shadow: 0 24px 60px -30px rgba(80, 30, 140, .55), var(--bk-shadow);
+}
+.wt-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #17121f, #0d0a12);
+  border-bottom: 1px solid #2a2135;
+  color: #d9d2e6;
+}
+.wt-dots { display: inline-flex; gap: 6px; }
+.wt-dots i { width: 10px; height: 10px; border-radius: 50%; background: #3a3246; }
+.wt-dots i:nth-child(1) { background: var(--brand-1); }
+.wt-dots i:nth-child(2) { background: var(--brand-4); }
+.wt-dots i:nth-child(3) { background: var(--brand-3); }
+.wt-title { font: 600 13px/1.2 var(--font-mono); letter-spacing: .02em; opacity: .9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.content a.wt-open:link, .content a.wt-open:visited {
+  margin-left: auto; flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: 600 12.5px/1.2 var(--font-sans);
+  color: #fff;
+  background: linear-gradient(135deg, #EC008C, #A855F7);
+  text-decoration: none;
+  box-shadow: 0 4px 14px -6px rgba(236, 0, 140, .8);
+  transition: transform .15s var(--bk-ease), box-shadow .2s;
+}
+.content a.wt-open:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -8px rgba(236, 0, 140, .9); text-decoration: none; }
+.wt-frame iframe {
+  display: block;
+  width: 100%;
+  height: max(560px, calc(100vh - 230px));
+  border: 0;
+  background: #000;
+}
+
+/* Overview: walkthrough cards */
+.wt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 24px 0;
+}
+.content a.wt-card:link, .content a.wt-card:visited {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 18px;
+  border-radius: calc(var(--bk-radius) + 2px);
+  border: 1px solid var(--bk-border);
+  background: var(--bk-surface);
+  color: var(--fg);
+  text-decoration: none;
+  box-shadow: var(--bk-shadow);
+  transition: transform .2s var(--bk-ease), border-color .2s, box-shadow .2s;
+  position: relative; overflow: hidden;
+}
+.content a.wt-card::after {
+  content: "→";
+  position: absolute; right: 16px; top: 16px;
+  color: var(--faint); font-size: 18px;
+  transition: transform .2s var(--bk-ease), color .2s;
+}
+.content a.wt-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--bk-accent) 50%, var(--bk-border));
+  text-decoration: none;
+}
+.content a.wt-card:hover::after { transform: translateX(4px); color: var(--bk-accent); }
+.wt-card .wt-icon {
+  display: grid; place-content: center;
+  width: 40px; height: 40px; margin-bottom: 6px;
+  border-radius: 12px;
+  font-size: 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-1) 20%, transparent), color-mix(in srgb, #A855F7 22%, transparent));
+}
+.wt-card .wt-name { font-weight: 700; font-size: 16.5px; }
+.wt-card .wt-desc { font-size: 14px; line-height: 1.5; color: var(--bk-text-muted); }
+@keyframes wt-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (max-width: 620px) {
+  .wt-frame iframe { height: 72vh; min-height: 460px; }
+  .wt-dots { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .wt-kicker::before { animation: none; } }
