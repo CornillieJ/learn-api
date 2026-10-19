@@ -376,7 +376,7 @@ ends in, the same convention as the VWO `JAAR` columns.
 
 ### Before you start
 
-You should have the end state of chapter 6: a WAR
+You should have the end state of [chapter 6](build-06-build-profiles.md): a WAR
 project in `~/Coding/techolympiad` that builds with
 `mvn -q -DskipTests -Plocal package`, a `docker-compose.yml` with the
 `api` service, and `GET /techolympiad/api/v1/hello` answering

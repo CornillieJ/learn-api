@@ -489,9 +489,9 @@ does not.
 <div class="diff-view" data-diff-view>
 
 ```diff
-     <mapping class="be.techolympiad.common.dbEntities.Inschrijvingsgeld"/>
-+    <mapping class="be.techolympiad.common.dbEntities.LeerlingEersteRonde"/>
-   </session-factory>
+         <mapping class="be.techolympiad.common.dbEntities.Inschrijvingsgeld"/>
++        <mapping class="be.techolympiad.common.dbEntities.LeerlingEersteRonde"/>
+     </session-factory>
 ```
 
 </div>

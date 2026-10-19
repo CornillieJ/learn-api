@@ -217,7 +217,7 @@ bean name, the same name a `@Bean` method gets from its method name.
 `${database.TO.url}` passes through three hands before Hibernate sees a
 URL:
 
-1. At build time, the `local` profile of [chapter 6](roadmap.md) copies
+1. At build time, the `local` profile of [chapter 6](build-06-build-profiles.md) copies
    `environmentAPI.local.properties` to `target/classes/environment.properties`.
 2. At startup, `@PropertySource("classpath:environment.properties")` on
    `OpenApiApplication` adds that file to Spring's `Environment`.
@@ -432,8 +432,8 @@ means the VWO runs a third pool once they are first called. Its twin
 
 You should have the end state of [chapter 7](build-07-mariadb.md): the
 `db` service running and healthy, with the `to_read` and `to_write`
-users. Chapter 2's `pom.xml` has what a web application needs (the web and
-Tomcat starters, springdoc) and no persistence dependencies yet.
+users. The `pom.xml` of chapters 2 to 6 has the web and Tomcat starters,
+Lombok, swagger-core and springdoc, and no persistence dependencies yet.
 
 ### Tasks
 

@@ -235,19 +235,28 @@ the same simple name:
 #### The database one arrives wrapped
 
 Hibernate throws its `ConstraintViolationException` when MariaDB answers
-an `INSERT` with error 1452 (foreign key) or 1062 (duplicate key). Spring
-then translates it before it reaches the controller. `JpaTransactionManager`
-commits the DAO's transaction, catches the failure and converts it into
-Spring's own `DataIntegrityViolationException`, with the Hibernate
-exception as its cause. Spring Boot's `PersistenceExceptionTranslationPostProcessor`
-does the same for exceptions thrown inside any `@Repository` bean. That
-is the class chapter 12 saw in the log.
+an `INSERT` with error 1452 (foreign key) or 1062 (duplicate key). It
+never reaches the controller in that form. The statement usually runs at
+commit, and `JpaTransactionManager` commits the DAO's transaction: it
+catches the failure and converts it into one of Spring's own
+`DataAccessException`s. Spring Boot's `PersistenceExceptionTranslationPostProcessor`
+does the same for exceptions thrown inside any `@Repository` bean. Which
+class you get depends on how the Hibernate exception was packed when
+Spring saw it:
 
-`ErrorAdvice` has no handler for `DataIntegrityViolationException`, so
-`ExceptionHandlerExceptionResolver` looks at the cause, finds the
-Hibernate exception, and calls the `409` handler with it. Before Spring
+- bare, it becomes a `DataIntegrityViolationException`, the class chapter 12 saw in the log for the foreign key;
+- wrapped in a JPA `PersistenceException` by Hibernate's commit, Spring may not recognise it and falls back to the generic `JpaSystemException`, which is what a duplicate key through our DAOs produces.
+
+Either way the Hibernate exception is somewhere in the cause chain.
+`ErrorAdvice` has a handler for neither Spring class, so
+`ExceptionHandlerExceptionResolver` walks `getCause()` recursively, finds
+the Hibernate exception, and calls the `409` handler with it. The
+handler's parameter receives the cause, not the wrapper. Before Spring
 5.3 only the top-level exception counted (with one level of cause from
-4.3), and this handler would have been dead code.
+4.3), and this handler, the VWO's included, would have been dead code.
+TechOlympiad therefore needs no handler for the wrappers; adding one for
+`DataIntegrityViolationException` would even take precedence and hide
+the MariaDB message.
 
 #### The validation one has a sibling
 
@@ -351,7 +360,8 @@ attribute on `@ExceptionHandler` that only Spring 6.2 has.
 <li><label><input type="checkbox"><span>Throw <code>NotFoundException</code> in <code>FunctionController.getByPerson</code>, <code>ToParticipationController.update</code> and <code>SchoolController.getById</code>.</span></label></li>
 <li><label><input type="checkbox"><span>Make <code>RegistrationFeeRepository.getAmount</code> return a plain <code>float</code> and throw when there is no fee; simplify the controller.</span></label></li>
 <li><label><input type="checkbox"><span>Close enrolment once round 1 has taken place: add the <code>RoundClosedException</code> check to <code>ToParticipantsController</code>.</span></label></li>
-<li><label><input type="checkbox"><span>Find what is left: <code>grep -rn "notFound()" src/main/java</code>. Convert every hit the same way.</span></label></li>
+<li><label><input type="checkbox"><span>Replace the <code>NoSuchElementException</code> throws in <code>LeerlingToRepositoryImpl</code> (chapter 14) and <code>ToScoringRepositoryImpl</code> (chapter 16) with <code>NotFoundException</code>, keeping the messages. Drop the <code>java.util.NoSuchElementException</code> imports.</span></label></li>
+<li><label><input type="checkbox"><span>Find what is left: <code>grep -rn "notFound()\|NoSuchElementException" src/main/java</code>. Convert every hit the same way.</span></label></li>
 <li><label><input type="checkbox"><span>Build, restart and work through <em>Run it</em>.</span></label></li>
 <li><label><input type="checkbox"><span>Commit: <code>git add -A &amp;&amp; git commit -m "Add error handling"</code>.</span></label></li>
 </ul>
@@ -426,6 +436,12 @@ public class ErrorAdvice {
         return error(HttpStatus.CONFLICT, ex.getMessage(), ex.toString());
     }
 
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handle(IllegalArgumentException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage(), ex.toString());
+    }
+
     @ResponseStatus(HttpStatus.CONFLICT)
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Map<String, String>> handle(ConstraintViolationException ex) {
@@ -456,6 +472,14 @@ public class ErrorAdvice {
     }
 }
 ```
+
+The `IllegalArgumentException` handler answers `400` for the scoring
+checks from [chapter 16](build-16-scoring.md): a malformed answer sheet or
+a missing `participantId` is the client's mistake. There is deliberately
+no handler for `IllegalStateException`. Chapter 16 throws it when the
+answer key in the database is incomplete, which is a data problem on our
+side, and Spring itself throws it for misconfiguration. Both should stay a
+`500` that someone notices in the log.
 
 The class lives in `restAPI`, inside the scanned package, so component
 scanning finds it like any controller. `MethodArgumentNotValidException`
@@ -639,7 +663,7 @@ return type:
 +    ToContestDatesRepository getDatesRepository();
 +
 @@
-     default ResponseEntity<List<LeerlingEersteRonde>> create(@RequestBody @NotNull ParticipantRegistration registration) {
+     default ResponseEntity<List<LeerlingEersteRonde>> create(@RequestBody @Valid @NotNull ParticipantRegistration registration) {
 +        requireEnrolmentOpen();
          ...
      }
@@ -680,7 +704,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@RestController
+@RestController("toParticipantsController.v1")
 @RequestMapping(path = V1Config.BASE_URL + "/to/participants", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "to-participants-controller")
 @Getter
@@ -697,7 +721,7 @@ public class ToParticipantsController implements be.techolympiad.common.restAPI.
 }
 ```
 
-Keep the tag and bean name you gave the class in chapter 14. The class
+The bean name and tag are chapter 14's. The class
 `@Getter` generates `getDatesRepository()`, which implements the new
 interface method.
 
@@ -743,8 +767,10 @@ Use the Swagger UI or `curl`; the base URL is
    {"description":"(conn=12) Cannot add or update a child row: a foreign key constraint fails (`TechOlympiad`.`Functies`, CONSTRAINT `Functies_ibfk_1` FOREIGN KEY (`PERSOON_ID`) REFERENCES `Persoon` (`PERSOON_ID`) ON DELETE CASCADE)","message":"could not execute statement"}
    ```
 
-   The log still shows a `DataIntegrityViolationException`: that is the
-   exception thrown; the handler received its cause.
+   The log still shows a `DataIntegrityViolationException` (for a
+   duplicate key it is a `JpaSystemException`): that is the exception
+   thrown; the handler received the Hibernate exception from its cause
+   chain.
 4. A body that fails `@Valid`: `POST /to/participation` with
    `{"schoolId": 1}` gives `400` and
    `"description":"edition must not be null"` (or another missing field;
@@ -760,13 +786,15 @@ Use the Swagger UI or `curl`; the base URL is
      -e "UPDATE Website_to_wedstrijddatums SET DATUM = '2026-10-01' WHERE JAAR = 2027 AND RONDE = '1'"
    curl -i -X POST http://localhost:8081/techolympiad/api/v1/to/participants \
      -H 'Content-Type: application/json' \
-     -d '{"schoolId": 1, "edition": "JTO", "pupilData": []}'
+     -d '{"schoolId": 1, "edition": "JTO", "pupilData": [{"firstName": "Vera", "lastName": "Test", "gender": "V", "grade": 1}]}'
    docker exec techolympiad-db mariadb -uroot -pdevpass TechOlympiad \
      -e "UPDATE Website_to_wedstrijddatums SET DATUM = '2027-01-14' WHERE JAAR = 2027 AND RONDE = '1'"
    ```
 
    The `POST` answers `409` with
-   `"message":"Enrolment for 2027 closed on 2026-10-01"`. This uses the
+   `"message":"Enrolment for 2027 closed on 2026-10-01"`. The body has to
+   pass `@Valid` first (chapter 14 requires at least one pupil), because
+   binding and validation run before the method body. This uses the
    school year of today's date, so if you read this after 1 September
    2027, use the next year's row.
 
@@ -791,7 +819,7 @@ Use the Swagger UI or `curl`; the base URL is
 <li data-correct><code>409</code>, because the Hibernate exception is the cause and Spring matches handlers against causes<p class="quiz-why"><code>ExceptionHandlerExceptionResolver</code> finds no handler for the top-level type, walks <code>getCause()</code>, and calls the handler with the cause.</p></li>
 <li><code>400</code>, because <code>DefaultHandlerExceptionResolver</code> handles data errors<p class="quiz-whynot">It only knows Spring MVC's own exceptions, such as type mismatches and unreadable bodies.</p></li>
 </ol>
-<p class="quiz-explain">Spring translates persistence exceptions into its own <code>DataAccessException</code> hierarchy at the transaction manager and at <code>@Repository</code> beans, and keeps the original as the cause. Handlers for the original still work.</p>
+<p class="quiz-explain">Spring translates persistence exceptions into its own <code>DataAccessException</code> hierarchy at the transaction manager and at <code>@Repository</code> beans (<code>DataIntegrityViolationException</code>, or <code>JpaSystemException</code> when it cannot classify the failure), and keeps the original in the cause chain. Handlers for the original still work.</p>
 </div>
 
 <div class="quiz" data-quiz>
@@ -822,7 +850,7 @@ Use the Swagger UI or `curl`; the base URL is
 <div class="card"><div class="front"><code>ExceptionHandlerExceptionResolver</code></div><div class="back">Runs <code>@ExceptionHandler</code> methods: the controller's own first, then the advice. Matches the exception or one of its causes.</div></div>
 <div class="card"><div class="front"><code>DefaultHandlerExceptionResolver</code></div><div class="back">Answers Spring MVC's own exceptions with <code>sendError</code>: type mismatch and invalid body give <code>400</code>, wrong method <code>405</code>.</div></div>
 <div class="card"><div class="front"><code>ErrorPageFilter</code></div><div class="back">Spring Boot's filter in a WAR: forwards uncaught exceptions and error statuses to <code>/error</code>.</div></div>
-<div class="card"><div class="front"><code>DataIntegrityViolationException</code></div><div class="back">Spring's translation of a refused statement. The Hibernate <code>ConstraintViolationException</code> is its cause.</div></div>
+<div class="card"><div class="front"><code>DataIntegrityViolationException</code></div><div class="back">Spring's translation of a refused statement. The Hibernate <code>ConstraintViolationException</code> is its cause. A failure Spring cannot classify becomes <code>JpaSystemException</code> instead.</div></div>
 <div class="card"><div class="front"><code>MethodArgumentNotValidException</code></div><div class="back">Thrown when <code>@Valid</code> on a <code>@RequestBody</code> fails. Not the same class as either <code>ConstraintViolationException</code>.</div></div>
 <div class="card"><div class="front">Unchecked exception</div><div class="back">A <code>RuntimeException</code> subclass: no <code>throws</code> needed, and <code>@Transactional</code> rolls back on it by default.</div></div>
 </div>

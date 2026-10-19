@@ -174,7 +174,7 @@ nothing is validated automatically. A controller parameter is checked
 only when it is marked `@Valid` (or Spring's `@Validated`).
 
 When it fails, Spring throws `MethodArgumentNotValidException` before
-your method body runs. Until [chapter 18](build-18-errors.md) adds an
+your method body runs. Until [chapter 18](build-18-error-handling.md) adds an
 error handler, Spring Boot's default answer is a `400` with a generic
 body:
 
@@ -581,10 +581,10 @@ The key is the enum itself. That works because every Java enum is
 <div class="diff-view" data-diff-view>
 
 ```diff
-     <mapping class="be.techolympiad.common.dbEntities.Functies"/>
-+    <mapping class="be.techolympiad.common.dbEntities.WedstrijdinfoTo"/>
-+    <mapping class="be.techolympiad.common.dbEntities.Inschrijvingsgeld"/>
-   </session-factory>
+         <mapping class="be.techolympiad.common.dbEntities.Functies"/>
++        <mapping class="be.techolympiad.common.dbEntities.WedstrijdinfoTo"/>
++        <mapping class="be.techolympiad.common.dbEntities.Inschrijvingsgeld"/>
+     </session-factory>
 ```
 
 </div>
@@ -1051,35 +1051,40 @@ In Swagger, under *to-participation-controller*:
    ```json
    [
      { "year": 2027, "schoolId": 1, "edition": "JTO", "digitalParticipation": false },
-     { "year": 2027, "schoolId": 1, "edition": "STO", "digitalParticipation": true }
+     { "year": 2027, "schoolId": 1, "edition": "STO", "digitalParticipation": true },
+     { "year": 2027, "schoolId": 2, "edition": "JTO", "digitalParticipation": false },
+     { "year": 2027, "schoolId": 2, "edition": "STO", "digitalParticipation": false },
+     { "year": 2027, "schoolId": 3, "edition": "JTO", "digitalParticipation": true },
+     { "year": 2027, "schoolId": 4, "edition": "STO", "digitalParticipation": false }
    ]
    ```
 
-   The ids and flags are your seed's. `year=2026` gives `[]`, since the
-   seed only registers 2027.
-2. `GET /api/v1/to/participation/{schoolId}` for one school: its one or
-   two registrations.
-3. Pick a school and edition that are *not* in the list and register it:
+   `year=2026` gives `[]`, since the seed only registers 2027.
+2. `GET /api/v1/to/participation/3`: Instituut Parelmoer has only JTO.
+3. Register school 4 for the JTO, which it is not yet:
 
    ```json
-   { "schoolId": 4, "edition": "STO", "digitalParticipation": true }
+   { "schoolId": 4, "edition": "JTO", "digitalParticipation": true }
    ```
 
    The response has `"year": 2027` filled in. Send the same body again:
    `500`, and the Tomcat log (`docker compose logs api`) shows a
    `DataIntegrityViolationException` caused by
-   `Duplicate entry '2027-4-STO' for key 'PRIMARY'`.
+   `Duplicate entry '2027-4-JTO' for key 'PRIMARY'`.
 4. Change it with `PUT /api/v1/to/participation` and
    `"digitalParticipation": false`: `200` with the new value. The same
-   `PUT` for a school that was never registered: `404`.
+   `PUT` for school 3 and `STO`, never registered: `404`.
 5. Send `{ "edition": "STO" }` to the `POST`: `400`, and the log names
    the two fields that are `null`.
-6. `GET /api/v1/registration-fee/jto`: the fee as a number, such as
-   `7.5`. If your seed has no fees the answer is `404`; add them with:
+6. `GET /api/v1/registration-fee/jto`: `2.5`, the seed's `2.50` as a
+   `float`. `/registration-fee/sto` gives `3.0`. To see the `404`, remove
+   a fee and put it back:
 
    ```bash
    docker compose exec db mariadb -uroot -pdevpass TechOlympiad \
-     -e "INSERT INTO Inschrijvingsgeld VALUES ('JTO', 7.50), ('STO', 9.00)"
+     -e "DELETE FROM Inschrijvingsgeld WHERE EDITIE = 'STO'"
+   docker compose exec db mariadb -uroot -pdevpass TechOlympiad \
+     -e "INSERT INTO Inschrijvingsgeld VALUES ('STO', 3.00)"
    ```
 
 <div class="callout danger">

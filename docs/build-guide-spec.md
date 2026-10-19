@@ -193,3 +193,22 @@ from `log4j2.appName`), `@Slf4j` on `ToScoringRepositoryImpl`.
 `target/techolympiadAPI.war`; `docker build -t techolympiad-api .` and run it
 against the compose DB. `.gitlab-ci.yml` and `.releaserc.json` are read and
 explained from the VWO repo; nothing is pushed to GitLab or a registry.
+
+## Changes made while writing the chapters
+
+These override the sections above where they differ.
+
+- Ch 2: `dependencyManagement` imports the Spring Framework BOM 5.3.39; `swagger-core` 2.2.30 before springdoc (ch 5).
+- Ch 8: no `current_session_context_class` (`LocalSessionFactoryBean` sets `SpringSessionContext`); no `pool_size` or `max_statements_per_connection`.
+- Ch 7: `Functies.SCHOOL_ID` has an FK to `Scholen` (VWO has none); answer keys for rounds 1 and 2; participant numbers `(JAAR % 100) * 1000000 + n`; prod placeholders are `CHANGE_ME`.
+- Ch 12: every `v1` controller has an explicit bean name `"xxxController.v1"` (except `ScholenController`, whose name never collides); `ToRoleConverter` is nested in `Configuration`, as in VWO.
+- Ch 14: repository methods `count(ToRole, short year)`, `countPerSchool(ToRole, short year)`; year routing lives in the repository; `LeerlingToDao.getMaxParticipantNumber(short year)`, `updateAll`, `getByEdition`; pupil grade is JSON `grade`.
+- Ch 15: `WebsiteToWedstrijddatums` uses `@EmbeddedId` (Hibernate skips converters on `@Id`); `ToRoundConverter` is top level in `dbEntities`; `AnswerStringController` produces `text/plain`; `ToContestDatesRepository.findById(WebsiteToWedstrijddatumsPK)` and `findAllByYear(short)`.
+- Ch 16: `AntwoordenDao.getAnswers(ToRole, byte, short)`, `LeerlingTweedeRondeDao.getByEdition`/`deleteByEdition`; selection only for round 1 (round 2 answers 400).
+- Records in `restAPI.models`: `ParticipationInfo`, `PersonFunction`, `EditionCount`, `SchoolParticipantCount`, `ArchiveResult`; `RoundResult` has `@AllArgsConstructor`.
+- Ch 17: the archive copies round 1 only; its native DML declares synchronized query spaces.
+- Ch 18: handlers for `NotFoundException` (404), `RoundClosedException` (409), `IllegalArgumentException` (400), Hibernate `ConstraintViolationException` (409, matched through the cause chain of `JpaSystemException`/`DataIntegrityViolationException`), both validation exceptions (400; VWO uses 422); `NoSuchElementException` throws from ch 14/16 become `NotFoundException`; no handler for `IllegalStateException`.
+- Ch 19: `v2` controllers `SchoolController`, `FunctionController` (adds `DELETE /{personId}/{schoolId}/{function}`, old body `DELETE` answers 410), `RegistrationFeeController` (adds `GET` for all fees).
+- Ch 20: `ApiUserDao.updateLastLogin(String)`; `AccessDeniedException` handler (403); missing or invalid token answers 401 (as VWO); failed login 401; seed users `admin`/`adminpass`, `teacher`/`teacherpass`. VWO has no `@PreAuthorize`; ours is a deviation.
+- Ch 21: `CacheRepository.evictAll()`; `cacheManagerUri=classpath:ehcache.xml` and `hibernate.javax.cache.uri=ehcache.xml`; third cache `be.techolympiad.common.dbEntities.Scholen`; env key `log4j2.hibernate`; `spring-context-support`, log4j 2.24.3 artifacts, `spring-boot-starter` with the logging exclusion. VWO's `ehcache.xml` is never loaded (its `VwoParticipant` cache lookup fails with a 500).
+- Ch 22: `.dockerignore`; the chapter's commit tags `v1.0.0` locally.

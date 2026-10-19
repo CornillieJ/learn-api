@@ -348,7 +348,7 @@ them that way.
 
 ### What you should have
 
-The end state of [chapter 11](build-11-repository.md): the WAR runs on
+The end state of [chapter 11](build-11-repository-controller.md): the WAR runs on
 Tomcat, Swagger shows the `v1` group with the school endpoints, and the
 database holds the seed data, including the seeded teachers in `Persoon`
 and their rows in `Functies`.
@@ -629,10 +629,10 @@ public class Functies implements Serializable {
 <div class="diff-view" data-diff-view>
 
 ```diff
-     <mapping class="be.techolympiad.common.dbEntities.Scholen"/>
-+    <mapping class="be.techolympiad.common.dbEntities.Persoon"/>
-+    <mapping class="be.techolympiad.common.dbEntities.Functies"/>
-   </session-factory>
+         <mapping class="be.techolympiad.common.dbEntities.Scholen"/>
++        <mapping class="be.techolympiad.common.dbEntities.Persoon"/>
++        <mapping class="be.techolympiad.common.dbEntities.Functies"/>
+     </session-factory>
  </hibernate-configuration>
 ```
 
@@ -1076,7 +1076,7 @@ public class FunctionController implements be.techolympiad.common.restAPI.contro
 The class has the same simple name as the interface, so `implements`
 spells the interface out in full, exactly as the VWO does. The explicit
 bean name `"functionController.v1"` matters later: the `v2` class of
-[chapter 19](build-19-v2.md) is also called `FunctionController`, and two
+[chapter 19](build-19-api-v2.md) is also called `FunctionController`, and two
 scanned beans with the default name `functionController` would stop the
 application from starting.
 
@@ -1091,7 +1091,6 @@ application from starting.
 +
 +    @GetMapping("/to/user/{user_id}")
 +    @Operation(summary = "Get all schools for the TechOlympiad responsable with given ID")
-+    @ResponseBody
 +    default List<Scholen> getByToResponsible(@PathVariable("user_id") short id) {
 +        return getRepository().getByToResponsible(id);
 +    }
@@ -1111,56 +1110,60 @@ Open `http://localhost:8081/techolympiad/public/swagger-ui.html`. A
 *function-controller* section appears next to the school endpoints. Work
 through it with the seed data:
 
-1. `GET /api/v1/school` and note a school `id`.
-2. `GET /api/v1/function/to/school/{schoolId}` with that id and
-   `edition` = `jto` (lower case on purpose). You get the seeded JTO
-   responsable(s) of that school:
+1. `GET /api/v1/function/to/school/2` with `edition` = `jto` (lower case
+   on purpose). Atheneum Kruidenhof's JTO responsable is Eli Willems:
 
    ```json
    [
      {
-       "personId": 1,
-       "lastName": "...",
-       "firstName": "...",
-       "email": "...",
-       "gender": "V"
+       "personId": 5,
+       "lastName": "Willems",
+       "firstName": "Eli",
+       "email": "eli.willems@school.example",
+       "gender": "X"
      }
    ]
    ```
 
-   The values are those of your seed. Try `edition` = `XYZ`: `400`.
-3. `GET /api/v1/function/to/{personId}` with that `personId`:
+   With `edition` = `sto` you get Bram Janssens instead. Try
+   `edition` = `XYZ`: `400`.
+2. `GET /api/v1/function/to/1`: An Peeters holds both editions of school 1.
 
    ```json
    {
-     "user": { "personId": 1, "lastName": "...", "firstName": "...", "email": "...", "gender": "V" },
+     "user": { "personId": 1, "lastName": "Peeters", "firstName": "An", "email": "an.peeters@school.example", "gender": "V" },
      "roles": [
-       { "personId": 1, "schoolId": 2, "function": "JTO" }
+       { "personId": 1, "schoolId": 1, "function": "JTO" },
+       { "personId": 1, "schoolId": 1, "function": "STO" }
      ]
    }
    ```
 
    A `personId` that does not exist, such as `999`, gives `404` with an
    empty body.
-4. Make that person STO responsable of a second school with
+3. `GET /api/v1/school/to/user/1`: school 1 once. Two `Functies` rows
+   match, so without `DISTINCT` it would be listed twice.
+4. Make Charlotte Maes (person 3) STO responsable of school 2 with
    `POST /api/v1/function`:
 
    ```json
-   { "personId": 1, "schoolId": 3, "function": "STO" }
+   { "personId": 3, "schoolId": 2, "function": "STO" }
    ```
 
    The response echoes the body. Send it again: still `200`, because
    `saveOrUpdate` sees the row exists.
-5. `GET /api/v1/school/to/user/{user_id}` with the same id: both schools,
-   each once.
+5. `GET /api/v1/school/to/user/3`: schools 2 and 3.
 6. Remove the new function with `DELETE /api/v1/function` and the same
    body: `204`. Or from a terminal:
 
    ```bash
    curl -i -X DELETE http://localhost:8081/techolympiad/api/v1/function \
      -H 'Content-Type: application/json' \
-     -d '{"personId": 1, "schoolId": 3, "function": "STO"}'
+     -d '{"personId": 3, "schoolId": 2, "function": "STO"}'
    ```
+
+7. Post `{ "personId": 99, "schoolId": 2, "function": "STO" }`: `500`,
+   because the foreign key to `Persoon` refuses the row (see below).
 
 <div class="callout danger">
 <div class="callout-label">When it breaks</div>
@@ -1170,7 +1173,7 @@ through it with the seed data:
 - **`400` for `?edition=jto`**: the converter is not registered. Check that `ToRoleConverter` is `static`, annotated `@Component`, and inside `be.techolympiad`, the package the XML `component-scan` covers.
 - **`400` with `JSON parse error: Cannot deserialize value of type ToRole from String "jto"`** on the `POST`: bodies are read by Jackson, not by the converter. Send `"JTO"`.
 - **`ConflictingBeanDefinitionException: ... 'functionController'`**: two scanned classes got the same default bean name. Give the `v1` class its explicit name.
-- **`500` with `DataIntegrityViolationException` in the Tomcat log** on the `POST`: the `personId` or `schoolId` does not exist, and the foreign key refuses the row. Error handling arrives in [chapter 18](build-18-errors.md).
+- **`500` with `DataIntegrityViolationException` in the Tomcat log** on the `POST`: the `personId` or `schoolId` does not exist, and the foreign key refuses the row. Error handling arrives in [chapter 18](build-18-error-handling.md).
 - **`org.hibernate.hql.internal.ast.QuerySyntaxException: Functies is not mapped`**: the `<mapping>` line for `Functies` is missing from `hibernate_TO.cfg.xml`.
 
 </div>
