@@ -7,8 +7,8 @@ These five pages are interactive, clickable diagrams of the actual
 `vwo-api` codebase. They were generated separately from this guide and
 are kept exactly as they are (their own dark/purple theme, their own
 React + Mermaid rendering). Click a node in any diagram to open a
-detail panel; nothing here is graded or leveled, they're reference
-material to explore alongside the Learning Path.
+detail panel. These pages have no grades or levels. Use them as
+reference material next to the Learning Path.
 </div>
 
 <div class="wt-grid">

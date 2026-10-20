@@ -48,10 +48,13 @@ default ResponseEntity<Scholen> getById(@PathVariable("id") Short id) {
 
 </div>
 
-Notice: no `async` (a servlet thread blocks per request), `Short` not
-`short` (generics and nullable values need the boxed type), and the
-"might be missing" case is carried by `Optional` rather than by a
-nullable reference.
+Notice three things:
+
+- There is no `async`. A servlet thread blocks for each request.
+- The type is `Short`, not `short`. Generics and nullable values need the
+  boxed type.
+- `Optional` carries the "might be missing" case. A nullable reference
+  does not.
 
 </div>
 
@@ -60,7 +63,7 @@ nullable reference.
 ### 1.1 Java for C# Developers (YouTube, ABMedia)
 
 [https://www.youtube.com/watch?v=heZJ3iGj3KA](https://www.youtube.com/watch?v=heZJ3iGj3KA)
-🔎 title and channel confirmed; a search listing dates it May 2020
+🔎 title and channel confirmed. A search listing dates it May 2020
 (unconfirmed). Watch it at 1.5x: it's a good tour of the vocabulary.
 
 `Optional<T>`, `final`, `record`, `switch` expressions (`Configuration.java`),
@@ -71,8 +74,8 @@ of properties are all in play from line 1 of this repo.
 
 [https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/tips-for-java-developers](https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/tips-for-java-developers)
 ✅ page last updated 2026-09-18. Written for the opposite direction
-(Java → C#): read it backwards, each "C# has X" tells you what Java
-lacks or does differently.
+(Java → C#), so read it backwards. Each "C# has X" statement tells you
+what Java lacks or does differently.
 
 <div class="callout note">
 <div class="callout-label">Maps onto this repo</div>
@@ -110,7 +113,7 @@ School school = repo.findById(id).orElseThrow(NotFoundException::new);
 <div class="callout-label">Gotchas</div>
 
 - `optional.get()` on an empty `Optional` throws `NoSuchElementException`. Prefer `orElse`, `orElseGet`, `orElseThrow`.
-- `orElse(x)` evaluates `x` **always**, even when a value is present. `orElseGet(() -> x)` is lazy. In `getById` above, `ResponseEntity.notFound().build()` is built on every call; harmless there, expensive if `x` were a DB call.
+- `orElse(x)` evaluates `x` **always**, even when a value is present. `orElseGet(() -> x)` is lazy. In `getById` above, `ResponseEntity.notFound().build()` is built on every call. That is harmless there, but it would be expensive if `x` were a DB call.
 - `Optional` is meant for return types. Don't use it for fields or parameters.
 
 </div>
@@ -147,11 +150,11 @@ if (x.equals(y)) { }        // true; x == y is FALSE
 Boxed <code>Short</code>/<code>Integer</code>/<code>Long</code> values between
 -128 and 127 are cached, so <code>==</code> happens to work for small ids and
 silently breaks above 127. The repo passes school ids around as
-<code>Short</code>: always compare them with <code>.equals()</code>.
-Same idea for <code>BigDecimal</code> (Java's <code>decimal</code>):
+<code>Short</code>, so always compare them with <code>.equals()</code>.
+A similar trap exists for <code>BigDecimal</code> (Java's <code>decimal</code>):
 <code>new BigDecimal("1.0").equals(new BigDecimal("1.00"))</code> is
-<code>false</code> because scale counts; compare amounts with
-<code>compareTo(...) == 0</code>.
+<code>false</code> because <code>equals</code> also compares the scale.
+Compare amounts with <code>compareTo(...) == 0</code>.
 </div>
 
 ### 1.5 Mental model: checked exceptions
@@ -306,7 +309,7 @@ no `IQueryable`. Database filtering happens in HQL (Step 4).
 <li>It doesn't compile</li>
 <li>It throws a <code>NullPointerException</code></li>
 </ol>
-<p class="quiz-explain">On objects, <code>==</code> is identity. Boxed values from -128 to 127 are cached (so small ids "work"), 200 creates two distinct objects. Use <code>a.equals(b)</code>.</p>
+<p class="quiz-explain">On objects, <code>==</code> is identity. Boxed values from -128 to 127 are cached, so small ids "work". The value 200 creates two distinct objects. Use <code>a.equals(b)</code>.</p>
 </div>
 
 <div class="quiz" data-quiz>
@@ -328,7 +331,7 @@ no `IQueryable`. Database filtering happens in HQL (Step 4).
 <li><code>repo.findById(id)?.getName() ?: "unknown"</code></li>
 <li><code>repo.findById(id).orElse("unknown").getName()</code></li>
 </ol>
-<p class="quiz-explain">Java has no <code>?.</code> or <code>??</code> operators. <code>map</code> transforms the value if present; <code>orElse</code> supplies the fallback.</p>
+<p class="quiz-explain">Java has no <code>?.</code> or <code>??</code> operators. <code>map</code> transforms the value if present. <code>orElse</code> supplies the fallback.</p>
 </div>
 
 <div class="quiz" data-quiz>
@@ -350,7 +353,7 @@ no `IQueryable`. Database filtering happens in HQL (Step 4).
 <li data-correct>Any non-<code>static</code>, non-<code>final</code>, non-<code>private</code> instance method</li>
 <li>Only methods annotated <code>@Override</code></li>
 </ol>
-<p class="quiz-explain">Java methods are virtual by default; <code>final</code> is how you opt out. <code>@Override</code> is just a compile-time check on the overriding side.</p>
+<p class="quiz-explain">Java methods are virtual by default. Mark a method <code>final</code> to opt out. <code>@Override</code> is just a compile-time check on the overriding side.</p>
 </div>
 
 ### Flashcards

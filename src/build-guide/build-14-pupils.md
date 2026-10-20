@@ -9,17 +9,19 @@
 <div class="level overview">
 
 A registered school sends its pupils. The responsable fills in a list of
-names, genders and grades, and the API stores them in
-`Leerling_eerste_ronde`, gives each one a participant number, and later
-answers the questions every organiser asks: how many pupils are there,
-and how many per school? The VWO does this in `VwoParticipantsController`
-with `LeerlingVWODaoImpl` behind it. TechOlympiad gets
+names, genders and grades. The API then:
+
+1. stores the pupils in `Leerling_eerste_ronde`;
+2. gives each pupil a participant number;
+3. later answers the questions every organiser asks: how many pupils are there, and how many per school?
+
+The VWO does this in `VwoParticipantsController` with `LeerlingVWODaoImpl` behind it. TechOlympiad gets
 `ToParticipantsController`, `LeerlingToRepository` and `LeerlingToDao`.
 
 Three new ideas come with it. The pupil columns are shared by several
 tables (round 1, round 2, the history), so they live in a
 <dfn data-def="A JPA class annotated @MappedSuperclass: its field mappings are inherited by every entity that extends it, but it is not an entity itself and has no table.">mapped superclass</dfn>,
-`ToParticipant`. The client does not send entities; it sends
+`ToParticipant`. The client does not send entities. It sends
 <dfn data-def="A plain request or response class in restAPI.models, shaped for the API caller, with no JPA mapping. The repository copies its values into entities.">models</dfn>,
 `ParticipantRegistration` and `PupilData`, so it cannot set fields it
 has no business setting. And the counts come from HQL `GROUP BY`
@@ -138,14 +140,17 @@ entity inheritance, with three strategies:
 
 The real strategies model an "is a" relation in the data: every row of a
 subclass is also a row of the parent, with one shared key space. That
-does not describe these tables. A round 2 pupil is the *same* person as a
-round 1 pupil, with the same `PERSOON_ID`, seen through a view; a
-history row is a copy with a year added. Under `JOINED` or
-`SINGLE_TABLE` Hibernate would insist on owning the key and the
-discriminator, and the view could not be mapped at all. With
-`@MappedSuperclass` each entity maps its own table or view as it is,
-and the shared Java type is all the VWO needs: the polymorphism happens
-in Java (`List<? extends VwoParticipant>`), never in a query.
+does not describe these tables:
+
+- A round 2 pupil is the *same* person as a round 1 pupil, with the same
+  `PERSOON_ID`, seen through a view.
+- A history row is a copy with a year added.
+
+Under `JOINED` or `SINGLE_TABLE`, Hibernate would insist on owning the
+key and the discriminator, and the view could not be mapped at all. With
+`@MappedSuperclass`, each entity maps its own table or view as it is.
+The shared Java type is all the VWO needs. The polymorphism happens in
+Java (`List<? extends VwoParticipant>`), never in a query.
 
 Fields in a mapped superclass are `protected`, as in the VWO's
 `VwoParticipant`, so subclasses can use them directly. Lombok's `@Getter`
@@ -169,17 +174,17 @@ record Pupils(@JsonProperty(index = 1) Short schoolId,
 A separate request type keeps three things out of the client's hands:
 the generated `personId`, the `participantNumber` the server assigns,
 and the `result` that only scoring may set. With the entity as body, a
-client could send `"result": 30` and the insert would store it, the
-over-posting problem ASP.NET Core developers know from binding straight
-to EF entities. It also lets the request have its own shape: school and
+client could send `"result": 30` and the insert would store it. ASP.NET
+Core developers know this as the over-posting problem, from binding
+straight to EF entities. It also lets the request have its own shape: school and
 edition once at the top, then the list of pupils.
 
-We put the two models in `restAPI.models`, the VWO's package for exactly
-this (its `PupilData` lives there), as Lombok classes:
+We write the two models as Lombok classes:
 `ParticipantRegistration { schoolId, edition, pupilData[] }` and
-`PupilData { personId, firstName, lastName, gender, grade }`. The
-`personId` is ignored on a `POST` and required on a `PUT`, which updates
-pupils that already exist. (The `@Enumerated` in the VWO record has no
+`PupilData { personId, firstName, lastName, gender, grade }`. They go in
+`restAPI.models`, the VWO's package for exactly this (its `PupilData`
+lives there). The `personId` is ignored on a `POST`. It is required on a
+`PUT`, which updates pupils that already exist. (The `@Enumerated` in the VWO record has no
 effect: it is a JPA annotation and the record is no entity.)
 
 ### Validating a nested list
@@ -189,12 +194,13 @@ Its `pupilData` field carries `@Valid` too, which tells Hibernate
 Validator to *cascade*: every `PupilData` in the list is validated as
 well, and an error reads `pupilData[1].gender: must not be null`.
 
-The `PUT` takes a bare `List<PupilData>`. Here `@Valid` does not help:
-Spring validates the list object itself, an `ArrayList` has no
-constraints, and the elements are never visited. Validating them takes
-`List<@Valid PupilData>` together with `@Validated` on the controller
-class, which switches on Spring's method validation and reports failures
-as `javax.validation.ConstraintViolationException`. We keep the `PUT`
+The `PUT` takes a bare `List<PupilData>`. Here `@Valid` does not help.
+Spring validates the list object itself, but an `ArrayList` has no
+constraints, so the elements are never visited. To validate them, you
+need `List<@Valid PupilData>` together with `@Validated` on the
+controller class. `@Validated` switches on Spring's method validation,
+which reports failures as
+`javax.validation.ConstraintViolationException`. We keep the `PUT`
 simple and check the one field that matters, `personId`, by hand.
 
 ### Inserting a list, and why `IDENTITY` cannot batch
@@ -210,20 +216,20 @@ the `INSERT`, and `save` must return the id, so every `save` sends its
 `INSERT` at once, one statement per pupil. JDBC batching
 (`hibernate.jdbc.batch_size`) is silently disabled for identity keys.
 For a class of thirty pupils that is thirty quick statements and not
-worth optimising; it would matter for a nightly import of thousands.
+worth optimising. It would matter for a nightly import of thousands.
 
 ### Numbering participants
 
 Each pupil gets a `DEELNEMERSNUMMER`, the number on the answer sheet.
-The VWO's public `POST` leaves it `null`, but
-`LeerlingVWODaoImpl.transfer` shows the rule the API uses when it does
-assign one: the highest number in use, plus one
-(`getMaxParticipantNumber(pupil.getSchoolId(), role) + 1`). The VWO takes
-that maximum per school and edition. The TechOlympiad seed numbers
-pupils differently: the first two digits are the school year and the
-rest is one sequence over all schools, so the 2027 pupils are
-`27000001` to `27000009` and last year's history rows start at
-`26000001`. We keep that scheme, which makes the maximum a single query
+The VWO's public `POST` leaves it `null`. When the VWO API does assign
+one, `LeerlingVWODaoImpl.transfer` shows the rule: the highest number in
+use, plus one (`getMaxParticipantNumber(pupil.getSchoolId(), role) + 1`).
+The VWO takes that maximum per school and edition.
+
+The TechOlympiad seed numbers pupils differently. The first two digits
+are the school year, and the rest is one sequence over all schools. So
+the 2027 pupils are `27000001` to `27000009`, and last year's history
+rows start at `26000001`. We keep that scheme, which makes the maximum a single query
 over the whole table:
 
 ```text
@@ -240,9 +246,9 @@ sequence is also the simplest way to never collide between schools.
 requests at the same moment can both read `27000009` and both write
 `27000010`. The `UNIQUE` index on `DEELNEMERSNUMMER` turns the second
 request into an error instead of a duplicate number, and the rollback of
-the whole batch keeps the data consistent. For a form a handful of responsables fill in
-over several weeks that is an acceptable trade-off; the VWO's
-`transfer` lives with the same one.
+the whole batch keeps the data consistent. A handful of responsables
+fill in this form over several weeks, so that is an acceptable
+trade-off. The VWO's `transfer` lives with the same one.
 
 </div>
 
@@ -258,8 +264,8 @@ response shows the stored value.
 
 The VWO combines `insertable = false, updatable = false` with
 `@CreationTimestamp`. That annotation sets the field from the JVM clock
-before the insert; since the column is not insertable, the database
-still uses its own default. The response then shows the JVM's time and
+before the insert. The column is not insertable, so the database still
+uses its own default. The response then shows the JVM's time and
 the table holds MariaDB's, which agree as long as both clocks and time
 zones do.
 
@@ -298,7 +304,7 @@ The VWO does not use that anywhere: its counts end up in maps and
 records assembled in the controller, and `Object[]` rows keep the query
 independent of any result class. We follow it. In EF Core you would
 write `GroupBy(l => l.SchoolId).Select(g => new { g.Key, Count = g.Count() })`
-and `ToDictionary`; the `Object[]` loop is that last step by hand.
+and `ToDictionary`. The `Object[]` loop does that last step by hand.
 
 ### Lists in query parameters
 
@@ -313,11 +319,11 @@ these endpoints.
 
 `leerjaar` and `resultaat` are `Byte`, matching `tinyint` columns.
 Swagger's model converter documents a Java `Byte` as
-`type: string, format: byte`, the OpenAPI way of saying "base64-encoded
-bytes", which would make Swagger UI show a text field and an example
-like `"string"`. The VWO overrides it with
+`type: string, format: byte`. That is the OpenAPI way of saying
+"base64-encoded bytes", and it would make Swagger UI show a text field
+and an example like `"string"`. The VWO overrides it with
 `@Schema(type = "integer")` on such fields, and so do we. The JSON
-Jackson produces is a plain number either way; the annotation only fixes
+Jackson produces is a plain number either way. The annotation only fixes
 the documentation.
 
 </div>
@@ -432,7 +438,7 @@ public abstract class ToParticipant implements Serializable {
 
 The VWO calls the grade `year` in JSON. TechOlympiad already uses `year`
 for the school year everywhere, so the pupil's grade is `grade`, with the
-Dutch `leerjaar` as alias. `equals` and `hashCode` live here once; the
+Dutch `leerjaar` as alias. `equals` and `hashCode` live here once. The
 `getClass()` comparison keeps a round 1 pupil and a round 2 row of the
 same person apart.
 
@@ -832,10 +838,13 @@ public class LeerlingToRepositoryImpl implements LeerlingToRepository {
 `register` returns the same objects it passed to `addAll`. After each
 `save` they carry their generated `persoonId`, and thanks to
 `@Generated` their `inschrijfdatum`, so the response shows exactly what
-was stored. `update` loads each pupil through the read-only factory,
-changes it, and hands the now-detached objects to `updateAll`, which
-writes them through the read-write factory: the VWO's `put` endpoint
-follows the same load-change-`updateAll` path.
+was stored.
+
+`update` follows the same path as the VWO's `put` endpoint:
+
+1. It loads each pupil through the read-only factory.
+2. It changes the pupil.
+3. It hands the now-detached objects to `updateAll`, which writes them through the read-write factory.
 
 ### The controller
 
@@ -966,7 +975,7 @@ public interface ToParticipantsController {
 }
 ```
 
-Interfaces may have `private static` methods since Java 9; the VWO's
+Interfaces may have `private static` methods since Java 9. The VWO's
 `FunctionController` uses one for the same kind of helper. The lambda
 passed to `forEach` uses `year` and `edition`, which works because both
 are effectively final: assigned once and never changed.
@@ -1057,8 +1066,8 @@ mvn -q -DskipTests -Plocal package && docker compose restart api
    ]
    ```
 
-   The seed has five JTO and four STO pupils; the two you added make it
-   seven.
+   The seed has five JTO and four STO pupils. The two you added make it
+   seven JTO pupils.
 
    With `edition` = `jto` only the first entry comes back.
 5. `GET /api/v1/to/participants/school-counts?edition=JTO`: schools 1, 2

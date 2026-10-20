@@ -58,8 +58,9 @@ until you create it.
 ### 2.1 Simple Explanation of Maven and pom.xml (YouTube, Brandan Jones)
 
 [https://www.youtube.com/watch?v=KNGQ9JBQWhQ](https://www.youtube.com/watch?v=KNGQ9JBQWhQ)
-🔎 title and channel confirmed; covers groupId/artifactId/version,
-parent, effective POM, dependencies, plugins (not independently confirmed).
+🔎 title and channel confirmed. Its listed topics (not independently
+confirmed) are groupId/artifactId/version, parent, effective POM,
+dependencies and plugins.
 
 ```xml
 <!-- pom.xml -->
@@ -82,7 +83,8 @@ the WAR.
 ### 2.2 Maven Tutorials 04 (YouTube, gontuseries)
 
 [https://www.youtube.com/watch?v=1cz8VPc-1Vw](https://www.youtube.com/watch?v=1cz8VPc-1Vw)
-🔎 title and channel confirmed; part 4 of an older series, a supplement.
+🔎 title and channel confirmed. It is part 4 of an older series, so use
+it as a supplement.
 
 Dependency scopes decide what ends up in the WAR:
 
@@ -101,8 +103,10 @@ supplies it at runtime, so don't package it".
 (validate → compile → test → package → integration-test → verify →
 install → deploy), repositories, and core commands.
 
-The lifecycle explains *when* this project's odd build steps run: the
-Ant env-file copy is bound to `compile`, the SSH/SCP deploy to `package`:
+The lifecycle explains *when* this project's odd build steps run:
+
+- the Ant env-file copy is bound to `compile`
+- the SSH/SCP deploy is bound to `package`
 
 ```xml
 <execution><id>set_env</id><phase>compile</phase> … target="properties-APIdev" …
@@ -118,7 +122,7 @@ tutorial: [https://www.baeldung.com/maven](https://www.baeldung.com/maven).
 ### 2.4 Mental model: phases, not targets
 
 `dotnet build` and `dotnet publish` are separate commands. Maven has one
-ordered **lifecycle**; running a phase runs every phase before it.
+ordered **lifecycle**. When you run a phase, Maven runs every phase before it.
 `mvn package` = validate + compile + test + package. Plugins attach
 "executions" to phases, which is how the Ant copy and the SCP deploy
 sneak into an ordinary build.
@@ -156,7 +160,7 @@ sneak into an ordinary build.
 <div class="callout danger">
 <div class="callout-label">.NET gotchas</div>
 
-- **Version conflicts:** NuGet picks the *lowest applicable* version; Maven picks the version *nearest* to your POM in the dependency tree, and on a tie the first one declared. A transitive dependency can silently win or lose. Use `mvn dependency:tree` and `<exclusion>` (the repo excludes `spring-boot-starter-logging` to swap Logback for Log4j2).
+- **Version conflicts:** NuGet picks the *lowest applicable* version. Maven picks the version *nearest* to your POM in the dependency tree. On a tie, Maven picks the one declared first. A transitive dependency can silently win or lose. Use `mvn dependency:tree` and `<exclusion>` (the repo excludes `spring-boot-starter-logging` to swap Logback for Log4j2).
 - **`SNAPSHOT` versions are mutable.** `1.0-SNAPSHOT` (like the parent POM here) can change under the same version number, unlike a NuGet prerelease.
 - **No `appsettings.{Environment}.json` at runtime.** In this repo the Ant step copies the right `environment.properties` into `target/classes` at compile time. Check it after every build.
 
@@ -208,7 +212,7 @@ sneak into an ordinary build.
 <li data-correct><code>mvn package -P dev</code></li>
 <li><code>mvn dependency:tree</code></li>
 </ol>
-<p class="quiz-explain">The SSH/SCP deploy execution is bound to <code>package</code> under the <code>dev</code>/<code>production</code> profiles. <code>gitlab-*</code> profiles only run the env-file copy at <code>compile</code>; <code>mvn compile</code> never reaches <code>package</code>.</p>
+<p class="quiz-explain">The SSH/SCP deploy execution is bound to <code>package</code> under the <code>dev</code>/<code>production</code> profiles. <code>gitlab-*</code> profiles only run the env-file copy at <code>compile</code>. And <code>mvn compile</code> never reaches <code>package</code>.</p>
 </div>
 
 <div class="quiz" data-quiz>
@@ -248,10 +252,10 @@ sneak into an ordinary build.
 <details class="qa">
 <summary>Self-check: why does <code>mvn package -P dev</code> potentially deploy to a real server, when <code>-P gitlab-dev</code> doesn't?</summary>
 <div class="ans">
-Because the SSH/SCP deploy execution is bound to the <code>package</code>
-phase only under the <code>dev</code>/<code>production</code> profiles:
-the <code>gitlab-*</code> profiles only run the Ant env-file copy at
-<code>compile</code> and stop there, so <code>package</code> under
+Only the <code>dev</code>/<code>production</code> profiles bind the SSH/SCP
+deploy execution to the <code>package</code> phase. The
+<code>gitlab-*</code> profiles only run the Ant env-file copy at
+<code>compile</code> and add nothing at <code>package</code>. So <code>package</code> under
 <code>gitlab-dev</code> produces a WAR without uploading it anywhere.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
@@ -261,7 +265,7 @@ the <code>gitlab-*</code> profiles only run the Ant env-file copy at
 <summary>Self-check: a fresh clone fails with "Non-resolvable parent POM". What's missing?</summary>
 <div class="ans">
 <code>pom-userProperties.xml</code>. The <code>&lt;parent&gt;</code> points at it
-via <code>&lt;relativePath&gt;</code>, but the file is gitignored; you create
+via <code>&lt;relativePath&gt;</code>, but the file is gitignored. You create
 it from <code>pom-userProperties.xml.tmpl</code>.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>

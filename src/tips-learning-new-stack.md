@@ -8,8 +8,8 @@ Seven principles, each turned into something you do this week.
    as an exercise.
 
 2. **Learn through a real project, not passive watching.**
-   **Do this:** never watch a video without the repo open; every step's
-   Drilling level gives you the repo task.
+   **Do this:** never watch a video without the repo open. The Drilling
+   level of every step gives you the repo task.
 
 3. **Combine resources:** docs, courses, books, community.
    **Do this:** pair each video with the official 5.3 / 5.6 / 5.7 docs
@@ -31,7 +31,8 @@ Seven principles, each turned into something you do this week.
    SessionFactories and the shared-interface controllers from memory.
 
 7. **Read others' code critically, write tests, prefer official docs.**
-   (Search summaries, snippet-level; not independently checked.)
+   (This point comes from search-result snippets. Nobody checked it
+   independently.)
    **Do this:** the repo has no tests. A small JUnit test around one DAO or
    repository method against a dev DB is both a learning exercise and real
    value.

@@ -19,12 +19,14 @@ roles from the `API_user_roles` table decide what they may call.
 
 TechOlympiad copies the VWO's `security` package class for class: the
 token filter, the provider, the JWT service, the in-memory user store
-and the `WebSecurityConfigurerAdapter`. Two things change on purpose.
-Passwords are checked with bcrypt, where the VWO's HQL compares against
-`sha2(:password, 512)` and cannot match the bcrypt hashes production
-stores. And write endpoints get `@PreAuthorize("hasAuthority('ADMIN')")`,
-where the VWO enables method security (permission checks on individual
-methods) but never uses it.
+and the `WebSecurityConfigurerAdapter`. Two things change on purpose:
+
+- Passwords are checked with bcrypt. The VWO's HQL compares against
+  `sha2(:password, 512)`, and that cannot match the bcrypt hashes that
+  production stores.
+- Write endpoints get `@PreAuthorize("hasAuthority('ADMIN')")`. The VWO
+  enables method security (permission checks on individual methods) but
+  never uses it.
 
 **After this chapter you can:**
 
@@ -135,15 +137,20 @@ not locked, and builds the authenticated token with the user's
 authorities.
 
 `TokenAuthenticationFilter` extends `AbstractAuthenticationProcessingFilter`,
-the base class of Spring's form-login filter. For each request its
-`RequestMatcher` accepts (here: every protected URL) it calls
-`attemptAuthentication`, which reads the header and hands a token to the
-manager. On success the base class stores the result in the
-`SecurityContextHolder` and calls the success handler. The VWO overrides
-`successfulAuthentication` to call `chain.doFilter` afterwards, because
-the base class, written for a login form, would otherwise stop the chain
-and redirect. The `NoRedirectStrategy` given to the success handler turns
-that redirect into a no-op.
+the base class of Spring's form-login filter. The filter has a
+`RequestMatcher`, which here accepts every protected URL. For each
+request that the matcher accepts:
+
+1. The filter calls `attemptAuthentication`. This method reads the
+   header and hands a token to the manager.
+2. On success, the base class stores the result in the
+   `SecurityContextHolder` and calls the success handler.
+
+The base class was written for a login form, so after success it would
+stop the chain and redirect. To prevent that, the VWO overrides
+`successfulAuthentication` to call `chain.doFilter` afterwards. The
+`NoRedirectStrategy` given to the success handler turns the redirect
+into a no-op.
 
 On failure the base class calls its failure handler. The default one,
 with no failure URL set, answers `401 Unauthorized` itself. That is what
@@ -194,9 +201,9 @@ against the database. The VWO copied this design from a tutorial
 - The map is shared by all request threads. The VWO's `HashMap` is not safe for concurrent writes; TechOlympiad uses a `ConcurrentHashMap`.
 
 The VWO also has `InMemoryUsers`, a second implementation of the same
-interface, which is why `ApiUsers` needs `@Primary` (the annotation that
-marks which bean to inject when several match the type). TechOlympiad has one
-implementation and no `@Primary`.
+interface. That is why `ApiUsers` needs `@Primary`, the annotation that
+marks which bean to inject when several match the type. TechOlympiad has
+one implementation and no `@Primary`.
 
 ### What is in a JWT
 
@@ -235,17 +242,21 @@ current jjwt 0.12, so tutorials will not match it:
 
 </div>
 
-Two more facts about this version. It does not check the key length;
-jjwt 0.10 and later refuse an HS256 key shorter than 256 bits, so use a
-secret of at least 32 characters anyway. And it encodes base64 with
-`javax.xml.bind.DatatypeConverter`, which Java 11 removed from the JDK;
-it works here only because `hibernate-core` brings `jaxb-api` along.
+Two more facts about this version:
+
+- It does not check the key length. jjwt 0.10 and later refuse an HS256
+  key shorter than 256 bits, so use a secret of at least 32 characters
+  anyway.
+- It encodes base64 with `javax.xml.bind.DatatypeConverter`, which
+  Java 11 removed from the JDK. It works here only because
+  `hibernate-core` brings `jaxb-api` along.
 
 The VWO's `JWTTokenService` also compresses the token with gzip and
 implements jjwt's `Clock` interface. TechOlympiad leaves out both.
-Compression makes a payload this small longer, and the `zip` header is a
-JWE (JSON Web Encryption) feature that other JWT libraries refuse on a signed token. The
-custom `Clock` returns the same time as jjwt's default one.
+Compression makes a payload this small longer. Also, the `zip` header
+is a feature of JWE (JSON Web Encryption), and other JWT libraries
+refuse it on a signed token. The custom `Clock` returns the same time as
+jjwt's default one.
 
 <div class="callout danger">
 <div class="callout-label">Not to copy: the VWO's signing key</div>
@@ -287,9 +298,9 @@ compares `a.password = sha2(:password, 512)` in HQL. SHA-512 in hex is
 equals a bcrypt hash. The local VWO database works around it by widening
 the column to 128 and seeding SHA-512 hashes. TechOlympiad keeps the
 production column and fixes the code: the DAO only finds the user, and
-`BCryptPasswordEncoder.matches` compares in Java. It reads the version,
-cost and salt from the stored hash, hashes the given password the same
-way, and compares in constant time.
+`BCryptPasswordEncoder.matches` compares in Java. `matches` reads the
+version, cost and salt from the stored hash, hashes the given password
+the same way, and compares in constant time.
 
 Spring Security's `BCryptPasswordEncoder` accepts the `$2a$`, `$2b$` and
 `$2y$` prefixes, so hashes from other tools work as they are.
@@ -305,7 +316,7 @@ Spring Security's `BCryptPasswordEncoder` accepts the `$2a$`, `$2b$` and
 prefix `ROLE_` and look for the authority `ROLE_ADMIN`. The VWO's old,
 commented-out `SpringSecurityConfig` uses `.hasRole("ADMIN")` with
 in-memory users defined through `.roles(...)`, which adds the prefix on
-the way in; the database roles have none.
+the way in. The database roles have no prefix.
 
 ### Method security
 
@@ -315,7 +326,7 @@ proxy, the same mechanism `@Transactional` uses, and evaluates the
 expression before the method runs. A failed check throws
 `AccessDeniedException`.
 
-The annotation may sit on an interface method; Spring Security looks at
+The annotation may sit on an interface method. Spring Security looks at
 the implementing method, then the class, then the interface. On the
 `default` methods of the controller interfaces it therefore applies to
 `v1` and `v2` alike. Spring Boot creates class-based (CGLIB) proxies by
@@ -326,8 +337,8 @@ The VWO enables `prePostEnabled` and has not one `@PreAuthorize`: any
 authenticated `USER` may call every endpoint, including the writes.
 TechOlympiad puts `hasAuthority('ADMIN')` on every write endpoint and on
 the archive. `@EnableGlobalMethodSecurity` was succeeded by
-`@EnableMethodSecurity` in Spring Security 5.6; the old one still works
-in 5.7 and is what the VWO uses.
+`@EnableMethodSecurity` in Spring Security 5.6. The old one still works
+in 5.7, and the VWO uses it.
 
 An `AccessDeniedException` from method security is thrown inside the
 controller call, so Spring MVC's resolvers see it first. Without a
@@ -338,22 +349,26 @@ to keep the JSON body shape of [chapter 18](build-18-error-handling.md).
 ### `WebSecurityConfigurerAdapter` is deprecated
 
 The VWO configures all of this by extending `WebSecurityConfigurerAdapter`
-and overriding three `configure` methods: one for the
-`AuthenticationManagerBuilder`, one for `WebSecurity` (the ignored
-paths), one for `HttpSecurity` (the filter chain). Spring Security 5.7,
-the version Spring Boot 2.7.18 brings, deprecated that class in favour of
-declaring a `SecurityFilterChain` bean and a `WebSecurityCustomizer`
-bean. The compiler says so, because chapter 2 turned on
-`showDeprecation`. TechOlympiad keeps the adapter, as the VWO does: it
-still works on 5.7, and reading the VWO requires knowing it. It is gone
+and overriding three `configure` methods:
+
+- one for the `AuthenticationManagerBuilder`
+- one for `WebSecurity` (the ignored paths)
+- one for `HttpSecurity` (the filter chain)
+
+Spring Security 5.7 is the version that Spring Boot 2.7.18 brings. It
+deprecated that class. The replacement is to declare a
+`SecurityFilterChain` bean and a `WebSecurityCustomizer` bean. The
+compiler warns about this, because chapter 2 turned on
+`showDeprecation`. TechOlympiad keeps the adapter, as the VWO does. It
+still works on 5.7, and you need to know it to read the VWO. It is gone
 in Spring Security 6.
 
 Spring Security 5.7 also logs a warning for every `web.ignoring()`
 pattern: *This is not recommended -- please use permitAll via
 HttpSecurity#authorizeHttpRequests instead.* Ignored paths skip every
 filter, including the security headers. That is fine for the Swagger UI
-and the login, and it is why the login cannot use the token filter's
-error handling: a failed login is answered by our own code.
+and the login. It also means that the login cannot use the token
+filter's error handling. Our own code answers a failed login.
 
 Spring Boot also stops doing two things once this configuration exists.
 It drops its default chain (the one that protects everything with a
@@ -415,9 +430,10 @@ copied:
 
 The starter brings Spring Security 5.7.11. The moment it is on the
 classpath, Spring Boot protects every URL, so add the configuration of
-this chapter before you restart Tomcat. The VWO also depends on Guava
-(Google's general Java utility library), for `ImmutableMap` and an `AUTHORIZATION` constant; TechOlympiad uses
-`Map.of` and Spring's `HttpHeaders.AUTHORIZATION` instead.
+this chapter before you restart Tomcat. The VWO also depends on Guava,
+Google's general Java utility library, for `ImmutableMap` and an
+`AUTHORIZATION` constant. TechOlympiad uses `Map.of` and Spring's
+`HttpHeaders.AUTHORIZATION` instead.
 
 ### The tables and the users
 
@@ -464,11 +480,11 @@ docker run --rm httpd:2.4 htpasswd -bnBC 12 "" adminpass | tr -d ':\n'; echo
 
 `-B` selects bcrypt, `-C 12` the cost, `-n` prints instead of writing a
 file, and the empty username leaves a leading `:` that `tr` removes.
-Every run prints a different hash, because the salt is random; any of
+Every run prints a different hash, because the salt is random. Any of
 them matches the password.
 
 `db/initdb/03-seed.sql`, at the end. The hashes below are for
-`adminpass` and `teacherpass`; yours will differ and work just as well:
+`adminpass` and `teacherpass`. Yours will differ and work just as well:
 
 ```sql
 INSERT INTO API_user (id, user, password, email)
@@ -562,7 +578,7 @@ public class ApiUser implements Serializable {
 @JoinColumn(name = "user_id", insertable = false, updatable = false) // (4)
 ```
 
-1. The database's `AUTO_INCREMENT`. The VWO writes a bare `@GeneratedValue`, which in Hibernate 5 means a sequence called `hibernate_sequence`; it only goes unnoticed because the API never inserts users.
+1. The database's `AUTO_INCREMENT`. The VWO writes a bare `@GeneratedValue`, which in Hibernate 5 means a sequence called `hibernate_sequence`. This goes unnoticed only because the API never inserts users.
 2. The hash never leaves the server, should the entity ever be serialised.
 3. The roles are needed after the DAO's transaction has ended, when `new User(apiUser)` reads them. A lazy collection would throw `LazyInitializationException` there, because its session is closed.
 4. A one-way association: the foreign key column lives in `API_user_roles`, and this side only reads it. The VWO maps it both ways, with a `@ManyToOne ApiUser` inside the role's key.
@@ -841,8 +857,8 @@ final class ApiUsers implements UserCrudService {
 
 The VWO's `save` returns `users.put(...)`, which is the previous value,
 so `null` on a first save. Nothing reads it, but ours returns the user.
-The class is package-private and `final`, like the VWO's; Spring creates
-it through reflection all the same.
+The class is package-private and `final`, like the VWO's. Spring still
+creates it through reflection.
 
 ### The JWT service
 
@@ -866,7 +882,7 @@ public interface TokenService {
 
 The VWO's interface also has `permanent` (a token without expiry) and
 `untrusted` (read a token without checking its signature). Nothing calls
-them; they are left out.
+them, so they are left out.
 
 `security/jwt/JWTTokenService.java`
 
@@ -1116,9 +1132,9 @@ final class TokenAuthenticationFilter extends AbstractAuthenticationProcessingFi
 
 The VWO's filter also accepts the token as a query parameter `t`. A URL
 ends up in Tomcat's access log, the browser history and proxy logs, so a
-token in it leaks; TechOlympiad reads the header only. The local VWO
-copy also has a branch that accepts HTTP Basic credentials; it is a
-local addition and not part of what we mirror.
+token in it leaks. TechOlympiad reads the header only. The local VWO
+copy also has a branch that accepts HTTP Basic credentials. That branch
+is a local addition and not part of what we mirror.
 
 `security/TokenAuthenticationProvider.java`
 
@@ -1164,9 +1180,9 @@ final class TokenAuthenticationProvider extends AbstractUserDetailsAuthenticatio
 
 `@FieldDefaults(level = PRIVATE, makeFinal = true)` makes every field
 `private final`, and `@AllArgsConstructor(access = PACKAGE)` writes the
-constructor Spring injects through; Lombok's `@NonNull` adds a null
-check to it. The VWO's message puts the token itself in the exception
-text, where it can end up in a log; ours does not.
+constructor Spring injects through. Lombok's `@NonNull` adds a null
+check to that constructor. The VWO's message puts the token itself in
+the exception text, where it can end up in a log. Ours does not.
 `AbstractUserDetailsAuthenticationProvider` turns the
 `UsernameNotFoundException` into a `BadCredentialsException`, so the
 filter answers `401` either way.
@@ -1214,7 +1230,7 @@ final class PublicUsersController {
 The VWO throws a plain `RuntimeException` for a wrong password, which
 reaches the client as `500`. `ResponseStatusException` goes through
 `ResponseStatusExceptionResolver` from chapter 18 and becomes `401`.
-`@RequestParam` reads query parameters and form fields alike; send them
+`@RequestParam` reads query parameters and form fields alike. Send them
 as a form body, so the password does not appear in Tomcat's access log.
 The path is not under `/api/v1/**` or `/api/v2/**`, so neither Swagger
 group shows it, as in the VWO.
@@ -1337,11 +1353,11 @@ registration.setEnabled(false);                                                 
 ```
 
 1. Everything that is not `/public/**`. Matchers see the path inside the application, so `/techolympiad` is not part of it.
-2. The `AuthenticationManager` this adapter builds holds only our provider. The VWO also calls `http.authenticationProvider(provider)`, which adds it a second time to another manager nobody uses; we skip that.
+2. The `AuthenticationManager` this adapter builds holds only our provider. The VWO also calls `http.authenticationProvider(provider)`, which adds it a second time to another manager nobody uses. We skip that.
 3. No filters at all for the login, the Swagger UI (springdoc serves it under `/public/swagger-ui.html` and `/swagger-ui/...`) and the API documents. The VWO's list also has `/restapi/**`.
-4. No HTTP session is created or read; the token is the only state.
+4. No HTTP session is created or read. The token is the only state.
 5. Our filter sits right before the anonymous fallback.
-6. CSRF (cross-site request forgery: another site making the browser send a request with your cookies) protection defends cookie-based sessions. A bearer header is never sent by a browser on its own, so there is nothing to defend.
+6. CSRF protection defends cookie-based sessions. In a CSRF (cross-site request forgery) attack, another site makes the browser send a request with your cookies. A browser never sends a bearer header on its own, so there is nothing to defend.
 7. `authenticationManager()` is the adapter's method that returns the manager from step 2.
 8. Every `Filter` bean is registered by Spring Boot as a servlet filter for all URLs. Without this, the token filter would also run outside Spring Security, in front of the login and the Swagger UI.
 
@@ -1453,7 +1469,7 @@ public class OpenApiApplication extends SpringBootServletInitializer {
 
 The scheme says: HTTP authentication, `bearer` scheme. Swagger UI shows
 an *Authorize* button, asks for the token, and sends
-`Authorization: Bearer <token>` with every call; you paste the token
+`Authorization: Bearer <token>` with every call. You paste the token
 without the word `Bearer`. `addSecurityItem` applies the scheme to every
 operation, so each shows a padlock. This is the VWO's code, scheme name
 included.
@@ -1610,7 +1626,7 @@ everything else, `TokenAuthenticationFilter` among them.
 
 - **Every URL, the Swagger UI included, answers `401`, and the log shows `Using generated security password`**: Spring Security is on the classpath but `SecurityConfig` was not picked up. It must be in `be.techolympiad.common.security`, annotated `@Configuration` and `@EnableWebSecurity`.
 - **`Could not resolve placeholder 'jwt.secret'`**: the property is missing from the environment file the build profile copied, or you built without `-Plocal`.
-- **Login always `401` with the right password**: the hash in the database is not the one you generated. A `$` in an unquoted shell heredoc (`cat >> 03-seed.sql <<EOF`) starts a variable, so `$2a$12$...` loses pieces; edit the file in your editor or quote the marker (`<<'EOF'`). Check with `SELECT password FROM API_user`, then `docker compose down -v` and up again.
+- **Login always `401` with the right password**: the hash in the database is not the one you generated. A `$` in an unquoted shell heredoc (`cat >> 03-seed.sql <<EOF`) starts a variable, so `$2a$12$...` loses pieces. Edit the file in your editor, or quote the marker (`<<'EOF'`). Check with `SELECT password FROM API_user`, then `docker compose down -v` and up again.
 - **`LazyInitializationException: failed to lazily initialize a collection of role: ...apiUserRoles`**: the collection is not `FetchType.EAGER`.
 - **`403` for the admin on a write**: the role check says `hasRole('ADMIN')`, which looks for `ROLE_ADMIN`. Use `hasAuthority`.
 - **`The dependencies of some of the beans in the application context form a cycle`**: a `PasswordEncoder` bean was moved into `SecurityConfig`. Keep it a field of `JwtAuthenticationService`.

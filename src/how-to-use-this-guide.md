@@ -13,8 +13,8 @@ Hibernate 6, which will not match this code.
 </div>
 
 Every step mixes video/audio with written articles (📖) and ends with
-work on the real code. Each Step chapter has three levels; pick one with
-the tabs at the top of the page, and your choice is remembered as you
+work on the real code. Each Step chapter has three levels. Pick one with
+the tabs at the top of the page. The guide remembers your choice when you
 move between chapters:
 
 - **Overview**: why the step matters here, what you can do afterwards,
@@ -31,7 +31,7 @@ move between chapters:
 1. Read the **Overview** and say out loud what you expect to be different from .NET.
 2. Work through **Deep Understanding** with the repo open next to it.
 3. Do the **Drilling** tasks in the repo, then the quizzes *without* scrolling back up.
-4. Anything you got wrong goes on a sticky note; re-test it tomorrow with the [Flashcards](flashcards.md).
+4. Write anything you got wrong on a sticky note. Re-test it tomorrow with the [Flashcards](flashcards.md).
 
 </div>
 
@@ -51,5 +51,5 @@ own suggested pacing (steps 1-2 in a weekend, step 3 over a week, then
 </ul>
 </div>
 
-Step 7 (ecosystem podcasts) is deliberately left out of the plan above:
-it's background listening, not a scheduled block.
+The plan above leaves out Step 7 (ecosystem podcasts) on purpose. It is
+background listening, so it needs no scheduled block.

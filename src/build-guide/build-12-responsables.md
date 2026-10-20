@@ -86,11 +86,11 @@ public class Functies implements Serializable {
 </div>
 
 The VWO version also maps two lazy `@ManyToOne` associations to `Persoon`
-and `Scholen`: fields that point at the related entity, like EF Core
-navigation properties, which Hibernate loads only when they are first
-read. TechOlympiad leaves them out; the Deep Understanding tab
-explains what they cost and why the queries in this chapter do not need
-them.
+and `Scholen`. An association is a field that points at the related
+entity, like an EF Core navigation property. "Lazy" means Hibernate
+loads it only when the field is first read. TechOlympiad leaves them
+out. The Deep Understanding tab explains what they cost and why the
+queries in this chapter do not need them.
 
 </div>
 
@@ -100,7 +100,7 @@ them.
 
 `Functies` connects a person to a school, with a role. In the VWO the
 role column holds sixteen different values (`JWO`, `VWO`, seven Kangoeroe
-editions, `Schoollid`, `Jury`, ...); in TechOlympiad it holds only `JTO`
+editions, `Schoollid`, `Jury`, ...). In TechOlympiad it holds only `JTO`
 or `STO`. A person can be responsable for several schools, a school can
 have a responsable per edition, and one person can hold both editions for
 the same school. No single column identifies a row, so the key is all
@@ -138,8 +138,8 @@ key class, because `Session.get(type, key)` takes one key object.
 </div>
 
 The VWO uses `@IdClass` almost everywhere: 37 entities in `dbEntities`
-declare one, and exactly one, `WebsiteVwoWedstrijddatums`, uses
-`@EmbeddedId`. You can see what that choice buys by looking at the odd
+declare an `@IdClass`. Exactly one entity,
+`WebsiteVwoWedstrijddatums`, uses `@EmbeddedId`. You can see what that choice buys by looking at the odd
 one out. Its HQL has to say `w.id.jaar` and its getter needs
 `@JsonUnwrapped` to keep the JSON flat. With `@IdClass` an entity reads
 and serializes like any other: the key fields are ordinary fields that
@@ -212,9 +212,12 @@ associations they can trigger lazy loading or infinite recursion.
 
 The column is a MariaDB `ENUM('JTO','STO')`, so `STRING` is the only
 correct choice. MariaDB treats a number written into an `ENUM` column as
-a 1-based index: `ORDINAL` would write `JTO` as `0`, which strict mode
-rejects, and `STO` as `1`, which MariaDB stores as `'JTO'`. Even with a
-plain integer column, `ORDINAL` breaks silently the day someone inserts a
+a 1-based index. With `ORDINAL`:
+
+- `JTO` would be written as `0`, which strict mode rejects.
+- `STO` would be written as `1`, which MariaDB stores as `'JTO'`.
+
+Even with a plain integer column, `ORDINAL` breaks silently the day someone inserts a
 new constant in the middle of the enum. Every enum field in the VWO uses
 `EnumType.STRING`.
 
@@ -261,8 +264,8 @@ Two limits are worth knowing:
   Spring wraps it in a `MethodArgumentTypeMismatchException` and answers
   `400 Bad Request`.
 
-In ASP.NET Core you would reach for a custom `TypeConverter` or a model
-binder; here it is one class with one method.
+In ASP.NET Core you would write a custom `TypeConverter` or a model
+binder. Here it is one class with one method.
 
 ### Joining without an association
 
@@ -291,7 +294,7 @@ does map both sides as lazy `@ManyToOne` fields (`persoonByPersoonId`,
 `schoolBySchoolId`, hidden from JSON with `@JsonIgnore`), and `Persoon`
 has the matching `@OneToMany`. Yet the school queries ignore them and use
 the ad hoc join. One query in `FunctiesDaoImpl` navigates an association
-(`SELECT f.persoonByPersoonId FROM Functies f ...`); the rest filter on
+(`SELECT f.persoonByPersoonId FROM Functies f ...`). The rest filter on
 the plain id fields.
 
 <div class="scenario" data-scenario data-start="start">
@@ -305,7 +308,7 @@ the plain id fields.
 </div>
 
 <div class="sc-node" data-node="copy">
-<p class="sc-result">The VWO combines <code>@IdClass</code> with <code>@MapsId</code>, which JPA defines for derived identities (a key that contains the key of a related entity) on top of <code>@EmbeddedId</code>, and maps <code>PERSOON_ID</code> twice (once read-only on the id field, once through the join column). To make that consistent you would have to decide which mapping writes the column, set the association on every new <code>Functies</code>, and keep <code>@JsonIgnore</code> on both fields so Jackson does not touch a lazy proxy outside its session.</p>
+<p class="sc-result">The VWO combines <code>@IdClass</code> with <code>@MapsId</code>. JPA defines <code>@MapsId</code> for derived identities (a key that contains the key of a related entity) on top of <code>@EmbeddedId</code>. The VWO also maps <code>PERSOON_ID</code> twice: once read-only on the id field, once through the join column. To make that consistent, you would have to decide which mapping writes the column and set the association on every new <code>Functies</code>. You would also have to keep <code>@JsonIgnore</code> on both fields, so Jackson does not touch a lazy proxy outside its session.</p>
 <p class="sc-prompt">Is any query in this chapter easier with them?</p>
 <ul class="sc-choices">
 <li data-goto="copy-end">Check the queries</li>
@@ -322,13 +325,15 @@ the plain id fields.
 
 </div>
 
-Two details of the VWO query are worth not copying. It compares the enum
-field with string literals (`f.functie = 'VWO'`), which only works
-because Hibernate passes the literal through to SQL; a parameter
-(`f.functie = :edition`) is checked against the field type. And a
-teacher who is responsable for both editions of the same school matches
-two `Functies` rows, so the school comes back twice. Our query says
-`SELECT DISTINCT s`.
+Do not copy two details of the VWO query:
+
+- It compares the enum field with string literals (`f.functie = 'VWO'`).
+  That only works because Hibernate passes the literal through to SQL.
+  A parameter (`f.functie = :edition`) is checked against the field
+  type.
+- A teacher who is responsable for both editions of the same school
+  matches two `Functies` rows, so the school comes back twice. Our query
+  says `SELECT DISTINCT s`.
 
 ### Parameter types must match exactly
 
@@ -922,10 +927,11 @@ public class FunctiesRepositoryImpl implements FunctiesRepository {
 
 `findResponsibles` looks up each person separately, one query per
 responsable. The VWO's `FunctionController.getRoles` does the same with a
-loop over `getPersonRepository().getById(userId)`; for the one or two
-responsables a school has, it does not matter. `save` delegates to
-`saveOrUpdate`, the VWO's habit for repository `save` methods: posting a
-function that already exists is then harmless.
+loop over `getPersonRepository().getById(userId)`. For the one or two
+responsables a school has, the extra queries do not matter. `save`
+delegates to `saveOrUpdate`, which is the VWO's habit for repository
+`save` methods. As a result, posting a function that already exists is
+harmless.
 [Chapter 13](build-13-registration.md) takes `save`, `saveOrUpdate`,
 `persist` and `merge` apart.
 
@@ -1042,9 +1048,9 @@ C# positional `record`) nested in the interface, as the VWO's
 `FunctionController.PersonFunction` is. Jackson 2.12 and later serialize
 records from their components, so it comes out as
 `{"user": {...}, "roles": [...]}`. The `DELETE` takes the key in a body,
-like the `POST`. HTTP allows a body on `DELETE` and Spring reads it like
-any other; the VWO `v1` class instead takes `personId`, `schoolId` and
-`function` as query parameters.
+like the `POST`. HTTP allows a body on `DELETE`, and Spring reads it like
+any other body. The VWO `v1` class instead takes `personId`, `schoolId`
+and `function` as query parameters.
 
 `restAPI/controllers/v1/FunctionController.java`
 

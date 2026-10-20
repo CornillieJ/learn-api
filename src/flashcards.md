@@ -6,8 +6,9 @@ of them the morning before you pick up your first ticket.
 
 <div class="callout rule">
 <div class="callout-label">How to use them</div>
-Say the answer out loud before you flip. If you hesitate, it isn't
-known yet: re-read the step it came from (numbers in brackets).
+Say the answer out loud before you flip. If you hesitate, you do not
+know the card yet. Re-read the step it came from (the step number is in
+the section heading).
 </div>
 
 ## Syntax and language (Step 1)

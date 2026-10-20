@@ -25,7 +25,7 @@ One contest year runs like this, exactly as in the VWO:
 - **Register** A school takes part in an edition for this year (`Wedstrijdinfo_to`).
 - **Assign** A teacher is the school's responsable for that edition (`Functies`).
 - **Enrol** The responsable registers pupils (`Leerling_eerste_ronde`).
-- **Round 1** Pupils answer 30 multiple-choice questions; the answers are scored against the key (`Antwoorden`).
+- **Round 1** Pupils answer 30 multiple-choice questions. The answers are scored against the key (`Antwoorden`).
 - **Select** Everyone above the cut-off (`Cesuren`) goes on to round 2 (`Leerling_tweede_ronde`).
 - **Round 2 and final** The same again, ending with a small final (`Leerling_finale`).
 - **Archive** At the end of the year the pupils move to the history tables (`Historiek_*`).
@@ -36,7 +36,7 @@ One contest year runs like this, exactly as in the VWO:
 
 Every table below has a VWO original with the same name pattern, the same
 key and a subset of its columns. Tables and columns stay Dutch and
-UPPER_SNAKE, the JSON and URLs are English, exactly like the VWO API.
+UPPER_SNAKE. The JSON and URLs are English, exactly like the VWO API.
 
 <div class="table-wrap">
 
@@ -108,7 +108,7 @@ Names follow the VWO habits:
   year the school year ends in, so 2026-2027 is `2027`.
 - School and person ids are `Short`, pupil ids `Integer`, rounds and question numbers `byte`.
   `Short` and `Integer` with a capital letter are wrapper classes that can be `null`, roughly
-  `short?` and `int?`; the lowercase `short` and `byte` are primitives that cannot. Java's `byte`
+  `short?` and `int?`. The lowercase `short` and `byte` are primitives that cannot be `null`. Java's `byte`
   is signed (-128 to 127), so it matches C#'s `sbyte`, not `byte`.
 
 ## Where we deviate on purpose

@@ -19,7 +19,7 @@ The VWO builds them in three steps, and we copy all three:
 
 After this chapter, `scholenDao.findAll()` returns the four seeded
 schools, and `scholenDao.getOptional((short) 1)` the first one, both
-through the read-only login. No endpoint exposes them yet; a temporary
+through the read-only login. No endpoint exposes them yet. A temporary
 change to the Hello controller proves they work.
 
 **After this chapter you can:**
@@ -123,7 +123,7 @@ Each layer adds one kind of knowledge:
 - `TechOlympiadDaoImpl` knows this database: the factories are the beans
   `toR` and `toRW`, the managers are `transactionToR` and
   `transactionToRW`. The VWO's design leaves room for a second database
-  with its own `...DaoImpl` at this level; the API never got one.
+  with its own `...DaoImpl` at this level, but the API never got one.
 - `ScholenDaoImpl` knows one entity and its queries.
 
 The interfaces mirror the classes, so the rest of the code depends on
@@ -144,8 +144,8 @@ Hibernate 5's `session.get(Class<T>, Serializable id)` takes a
 <dfn data-def="? extends E: an unknown type that is E or a subtype of it. It makes a generic parameter accept, for example, an Iterable of a subclass. Like C#'s covariant IEnumerable&lt;out T&gt;.">wildcard</dfn>.
 Java generics are invariant: a `List<LeerlingEersteRonde>` is not a
 `List<ToParticipant>`, even though the element types are related.
-`? extends E` lifts that for reading, which C# gets from the `out` in
-`IEnumerable<out T>`. Chapter 14 relies on it to add a list of pupils
+`? extends E` removes that restriction for reading. C# gets the same
+effect from the `out` in `IEnumerable<out T>`. Chapter 14 relies on it to add a list of pupils
 through a DAO typed on their superclass.
 
 ### Type erasure, and why GenericTypeResolver
@@ -175,16 +175,16 @@ protected AbstractDaoImpl() {
 ```
 
 1. The cast to `Class<E>` cannot be checked by the compiler, precisely because `E` is erased. The annotation silences that warning for this one declaration.
-2. `resolveTypeArguments` returns `null` when it cannot resolve anything; `requireNonNull` turns that into an immediate `NullPointerException` instead of a confusing one later.
+2. `resolveTypeArguments` returns `null` when it cannot resolve anything. `requireNonNull` turns that into an immediate `NullPointerException` instead of a confusing one later.
 3. `getClass()` runs in the constructor of the abstract class, but it returns the class actually being built: `ScholenDaoImpl`. Spring walks from there up to `AbstractDaoImpl` and collects what each step filled in for `E` and `K`.
 4. Index 0 is `E` (`Scholen.class`), index 1 would be `K` (`Short.class`).
 
 </div>
 
 This only works when a concrete class fixes the type arguments in its
-declaration. `new TechOlympiadDaoImpl<Scholen, Short>() {}` would work
-too (an anonymous subclass), while a plain generic instance could never
-learn its `E`.
+declaration. An anonymous subclass, such as
+`new TechOlympiadDaoImpl<Scholen, Short>() {}`, would work too. A plain
+generic instance could never learn its `E`.
 
 ### Injecting two factories by name
 
@@ -203,8 +203,8 @@ public void setFactoryRW(SessionFactory toRW) {
 a setter or a field), much like a constructor parameter that .NET's
 container fills. When `@Autowired` finds several candidates of the right type, Spring
 falls back to matching the *parameter name* against the bean names. The
-parameter is called `toRW`, there is a bean called `toRW`, so that one
-wins. Rename the parameter to `factory` and the deployment fails with
+parameter is called `toRW` and there is a bean called `toRW`, so that
+bean wins. Rename the parameter to `factory` and the deployment fails with
 `NoUniqueBeanDefinitionException: ... expected single matching bean but
 found 2: toRW,toR`.
 
@@ -245,7 +245,7 @@ right now. [Chapter 8](build-08-hibernate-xml.md) showed both halves of
 that: `JpaTransactionManager` binds a session to the thread when a
 transaction begins, and `LocalSessionFactoryBean` configured
 `SpringSessionContext`, which looks it up. So the DAO method never
-opens, commits or closes anything; the transaction around it does.
+opens, commits or closes anything. The transaction around it does that.
 
 When no transaction is running, there is nothing to look up, and
 `getCurrentSession()` throws:
@@ -284,8 +284,9 @@ check every bean for `@Transactional` methods. For each such bean it
 registers a
 <dfn data-def="An object that stands in for the real bean, has the same methods, and runs extra code (here: begin and commit a transaction) around each call before delegating to the real object.">proxy</dfn>
 in place of the bean itself. Whoever gets `ScholenDao` injected gets the
-proxy. Spring Boot creates these proxies as generated subclasses
-(with CGLIB, a library that generates classes at run time); `getClass()` on an injected DAO prints something like
+proxy. Spring Boot creates these proxies as generated subclasses, with
+CGLIB, a library that generates classes at run time. `getClass()` on an
+injected DAO prints something like
 `ScholenDaoImpl$$EnhancerBySpringCGLIB$$...`.
 
 ```mermaid
@@ -324,7 +325,7 @@ Annotation values must be compile-time constants, and a
 `static final String` initialised with a literal is one. That lets every
 DAO write `@Transactional(value = transactionR, readOnly = true)` without
 repeating the string. The lowercase names break Java's convention for
-constants (`TRANSACTION_R`); they are the VWO's.
+constants (`TRANSACTION_R`). We keep them because they are the VWO's.
 
 ### The self-invocation trap
 
@@ -338,11 +339,13 @@ public int countAll() {          // no @Transactional
 }
 ```
 
-`countAll()` arrives through the proxy, but has no annotation, so no
-transaction starts. Inside it, `findAll()`'s annotation is never
-evaluated, `getCurrentSession()` finds nothing and throws the
-`Could not obtain transaction-synchronized Session` error. Putting
-`@Transactional` on `countAll` itself fixes it: the transaction then
+Step by step:
+
+1. `countAll()` arrives through the proxy, but it has no annotation, so no transaction starts.
+2. `countAll()` calls `findAll()` on `this`. The proxy does not see that call, so it never evaluates the annotation on `findAll()`.
+3. `getCurrentSession()` finds no session and throws the `Could not obtain transaction-synchronized Session` error.
+
+Putting `@Transactional` on `countAll` itself fixes it: the transaction then
 starts at the outer call, and the inner `findAll()` finds its session.
 The same trap catches a `private` or `final` method, which a subclass
 proxy cannot override. The drill below reproduces it.
@@ -361,7 +364,7 @@ from within its own class is decoration.
 `findAll` runs `SELECT s FROM Scholen s`. That is
 <dfn data-def="Hibernate Query Language: SQL-like, but written against entity and attribute names instead of tables and columns. JPA standardised a subset of it as JPQL.">HQL</dfn>,
 not SQL. `Scholen` is the entity name and `s` an alias for an entity
-instance; it would be the same if the table were called something else.
+instance. The query would stay the same if the table had another name.
 Attributes are Java field names: `s.instituut`, never `s.INSTITUUT`. Of
 everything in .NET, LINQ to Entities is closest: you query the model
 and EF writes the SQL. HQL is that idea in string form, so mistakes show
@@ -384,9 +387,9 @@ straight from the session if it is already loaded there.
 
 Chapter 17 adds native SQL (`session.createNativeQuery`) for the history
 table, which has no entity. The VWO's `application.properties` contains
-`spring.jpa.show-sql=true`; that setting belongs to Spring Boot's JPA
-auto-configuration, which is off in both projects (chapter 8), so it has
-no effect.
+`spring.jpa.show-sql=true`. That setting has no effect: it belongs to
+Spring Boot's JPA auto-configuration, which is off in both projects
+(chapter 8).
 
 ### readOnly, once more
 
@@ -660,8 +663,8 @@ public abstract class AbstractDaoImpl<E extends Serializable, K extends Serializ
 ```
 
 `merge` returns the entity it was given, not the managed copy that
-`session.merge` returns. That is the VWO's behaviour, kept as it is;
-chapter 13 takes `save`, `saveOrUpdate`, `persist` and `merge` apart.
+`session.merge` returns. That is the VWO's behaviour, kept as it is.
+Chapter 13 takes `save`, `saveOrUpdate`, `persist` and `merge` apart.
 `deleteById` reads the row through the write session, because the
 entity must be loaded in the same session that deletes it.
 
@@ -824,7 +827,7 @@ Build and restart:
 mvn -q -DskipTests -Plocal package && docker compose restart api
 ```
 
-The deployment finishes as before; Spring now also builds the
+The deployment finishes as before. Spring now also builds the
 `scholenDaoImpl` bean and its proxy. To call it, change
 `HelloController` for a moment:
 

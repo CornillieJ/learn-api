@@ -15,9 +15,9 @@ The cache is Ehcache 3, reached through the Java caching standard,
 <dfn data-def="JSR-107 (Java Specification Request 107), javax.cache: a standard caching API (CacheManager, Cache, CachingProvider) that Ehcache, Hazelcast and others implement. Spring and Hibernate both talk to it.">JCache</dfn>.
 Spring's `@Cacheable` puts method results in it, and Hibernate's second
 level cache keeps entities in it between sessions. TechOlympiad caches
-the contest dates and the registration fees, which change a few times a
-year and are read on every page of a contest website, and lets
-Hibernate cache `Scholen`. A `DELETE /api/v1/cache` endpoint, for
+the contest dates and the registration fees. These change a few times a
+year, and every page of a contest website reads them. TechOlympiad also
+lets Hibernate cache `Scholen`. A `DELETE /api/v1/cache` endpoint, for
 administrators, empties the Spring caches, like the VWO's
 `CacheController`.
 
@@ -98,8 +98,8 @@ second-level cache has no built-in counterpart in EF Core.
 `JCacheManagerFactoryBean` asks the provider for a cache manager by URI.
 The VWO's bean sets no URI, so it gets the provider's default one,
 `urn:X-ehcache:jsr107-default-config`. For that URI Ehcache builds an
-empty default configuration; only another URI is treated as the location
-of an XML file. The VWO's `ehcache.xml`, which defines one cache called
+empty default configuration. Ehcache treats only another URI as the
+location of an XML file. The VWO's `ehcache.xml`, which defines one cache called
 `VwoParticipant`, is therefore never read.
 
 The effect shows on the one method that uses it,
@@ -120,7 +120,7 @@ java.lang.IllegalArgumentException: Cannot find cache named 'VwoParticipant' for
 be.vwo.common.restAPI.repositories.LeerlingVWORepositoryImpl.findByUsolvitCode(...)] caches=[VwoParticipant] | ...
 ```
 
-Spring's cache resolver throws when a named cache does not exist; it
+Spring's cache resolver throws when a named cache does not exist. It
 does not create one. TechOlympiad passes `cacheManagerUri`, and Spring
 converts `classpath:ehcache.xml` into the file's real URI before Ehcache
 sees it.
@@ -149,23 +149,27 @@ expiry and a size:
 bounds how stale a value can be: a date changed directly in the database
 is visible within an hour at the latest. The heap limit bounds memory:
 the 101st entry evicts one of the others. `heap` keeps live Java objects
-in the JVM heap, by reference. The VWO's cache uses `offheap` instead,
-memory outside the heap, which stores serialized copies, so every key
-and value must be `Serializable`.
+in the JVM heap, by reference. The VWO's cache uses `offheap` instead.
+That is memory outside the heap, and it stores serialized copies. So
+every key and value must be `Serializable`.
 
 `key-type` and `value-type` default to `java.lang.Object`. Declaring them
 makes Ehcache check every `put`, and that is easy to get wrong. The
-VWO's `VwoParticipant` declares `SimpleKey` as key type, which is only
-right for methods with more than one parameter; a one-parameter method
-would have its argument itself as key and fail the type check. Ours
-leave both out.
+VWO's `VwoParticipant` declares `SimpleKey` as key type. That is only
+right for methods with more than one parameter. For a one-parameter
+method, the key is the argument itself, so it would fail the type check.
+Our caches leave both types out.
 
 ### What `@Cacheable` does
 
-`@Cacheable("ToContestDates")` on a method means: compute a key from the
-arguments; if the cache has an entry for it, return that without running
-the method; otherwise run it and store the result. The key comes from
-Spring's `SimpleKeyGenerator`:
+`@Cacheable("ToContestDates")` on a method means:
+
+1. Compute a key from the arguments.
+2. If the cache has an entry for that key, return the entry without
+   running the method.
+3. Otherwise, run the method and store the result.
+
+The key comes from Spring's `SimpleKeyGenerator`:
 
 <div class="table-wrap">
 
@@ -178,12 +182,12 @@ Spring's `SimpleKeyGenerator`:
 </div>
 
 So a key class needs a correct `equals` and `hashCode`. The primary-key
-classes have them through Lombok's `@EqualsAndHashCode`; without, every
-lookup would miss. And two methods sharing one cache must not produce
-equal keys: `findById(pk)` and `findAllByYear(year)` share
-`ToContestDates` safely because a `WebsiteToWedstrijddatumsPK` never
-equals a `Short`. Two methods taking one `short` each would overwrite
-each other's entries; give them separate caches or a `key` expression.
+classes have them through Lombok's `@EqualsAndHashCode`. Without them,
+every lookup would miss. Also, two methods that share one cache must not
+produce equal keys. `findById(pk)` and `findAllByYear(year)` share
+`ToContestDates` safely, because a `WebsiteToWedstrijddatumsPK` never
+equals a `Short`. Two methods that take one `short` each would overwrite
+each other's entries. Give them separate caches or a `key` expression.
 
 `Optional` gets special treatment: Spring caches the value inside it, or
 `null` for an empty one, and wraps it again on the way out. In
@@ -217,10 +221,12 @@ query runs every time. Call it from another bean, or move the cached
 method there. The same applies to `private` methods, which a proxy cannot
 intercept at all.
 
-Two more consequences of caching by reference: the cached `Collection`
-is the same object for every caller, so a caller that modifies it
-modifies the cache; and an entity in the cache is detached from any
-Hibernate session, so touching one of its lazy associations throws.
+Caching by reference has two more consequences:
+
+- The cached `Collection` is the same object for every caller. A caller
+  that modifies it modifies the cache.
+- An entity in the cache is detached from any Hibernate session. Access
+  to one of its lazy associations throws.
 
 ### Hibernate's second-level cache
 
@@ -239,8 +245,8 @@ An entity takes part when it carries Hibernate's
 `@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)`. Hibernate keeps it
 in a *region*, a JCache cache named after the entity class,
 `be.techolympiad.common.dbEntities.Scholen`. `session.get(Scholen.class,
-id)` looks there before it queries; an HQL query still runs, but the
-entities it returns are put in the region. `READ_WRITE` locks an entry
+id)` looks there before it queries. An HQL query still runs, but
+Hibernate puts the entities it returns in the region. `READ_WRITE` locks an entry
 while a transaction updates it and replaces it at commit, so readers
 never see a half-written school.
 
@@ -251,16 +257,17 @@ cache manager from the same provider with the same URI, so they share one
 serve the old school until the TTL ran out.
 
 `hibernate.javax.cache.uri` points Hibernate at `ehcache.xml`, where the
-region gets its limits. The VWO sets no URI, and
+region gets its limits. The VWO sets no URI. Its setting
 `missing_cache_strategy` `create` makes Hibernate create any region it
-does not find, with no expiry and no size limit. VWO's entities carry no
-`@Cache`, so its regions are only the two query-cache regions that
-`use_query_cache` creates, and nothing calls `setCacheable(true)` on a
-query. TechOlympiad copies those two settings as they are.
+does not find, with no expiry and no size limit. The VWO's entities
+carry no `@Cache`. So its only regions are the two query-cache regions
+that `use_query_cache` creates, and nothing calls `setCacheable(true)`
+on a query. TechOlympiad copies those two settings
+(`missing_cache_strategy` and `use_query_cache`) as they are.
 
 `DELETE /cache` only empties Spring's caches. Hibernate's regions are
-emptied with `sessionFactory.getCache().evictAllRegions()`, which our
-`CacheRepository` does not call; the TTL handles them.
+emptied with `sessionFactory.getCache().evictAllRegions()`. Our
+`CacheRepository` does not call it. The TTL handles those regions.
 
 ### Logging: Log4j2 instead of Logback
 
@@ -271,15 +278,17 @@ Boot's default is Logback, through `spring-boot-starter-logging`, which
 every starter pulls in via `spring-boot-starter`. The VWO uses Log4j2:
 `spring-boot-starter-log4j2` brings Log4j2 and its SLF4J binding.
 
-Both bindings at once is a problem: SLF4J warns about multiple bindings
-and picks one, and Spring Boot's logging system prefers Logback when it
-finds it, ignoring `log4j2.xml`. So `spring-boot-starter-logging` has to
-go. A Maven exclusion only cuts the path it is declared on, and the
-logging starter arrives through `spring-boot-starter` from every other
-starter. The VWO's trick is to declare `spring-boot-starter` itself, with
-the exclusion: a direct declaration wins over the transitive ones (Maven
-picks the nearest), so its exclusion applies everywhere. The VWO's WAR
-contains no Logback jar.
+Both bindings at once is a problem. SLF4J warns about multiple bindings
+and picks one. Spring Boot's logging system prefers Logback when it
+finds it, and then ignores `log4j2.xml`. So `spring-boot-starter-logging`
+has to go.
+
+A Maven exclusion only cuts the path it is declared on. But the logging
+starter arrives through `spring-boot-starter`, and every other starter
+brings that. The VWO's trick is to declare `spring-boot-starter` itself,
+with the exclusion. A direct declaration wins over the transitive ones,
+because Maven picks the nearest. So the exclusion applies everywhere.
+The VWO's WAR contains no Logback jar.
 
 `spring-boot-starter-log4j2` 2.7.18 brings Log4j 2.17.2. The VWO declares
 `log4j-api`, `log4j-core` and the bindings at 2.24.3 directly, and the
@@ -312,7 +321,7 @@ its level is at least the logger's level: `TRACE` < `DEBUG` < `INFO` <
 
 `${...}` is a <dfn data-def="Log4j2's ${prefix:key} substitution in configuration files: sys: system properties, env: environment variables, bundle: a ResourceBundle (a .properties file on the classpath), and more.">lookup</dfn>:
 
-- `${sys:catalina.base}` is the system property (a JVM-wide `key=value` setting, usually passed as `-Dkey=value` on the `java` command line) Tomcat sets at startup, its instance folder. In the `tomcat:9-jdk17` image it is `/usr/local/tomcat`, so the log goes to `/usr/local/tomcat/logs`. `catalina.home` is where Tomcat is installed; `catalina.base` is where this instance keeps `conf`, `logs` and `webapps`. In the image they are the same folder.
+- `${sys:catalina.base}` is a system property that Tomcat sets at startup. Its value is Tomcat's instance folder. (A system property is a JVM-wide `key=value` setting, usually passed as `-Dkey=value` on the `java` command line.) In the `tomcat:9-jdk17` image the value is `/usr/local/tomcat`, so the log goes to `/usr/local/tomcat/logs`. `catalina.home` is where Tomcat is installed. `catalina.base` is where this instance keeps `conf`, `logs` and `webapps`. In the image they are the same folder.
 - `${bundle:environment:log4j2.logLevel}` reads the key `log4j2.logLevel` from the resource bundle `environment`, which is `environment.properties` on the classpath: the file the build profile of chapter 6 copies. `local` logs `INFO` and Hibernate's SQL, `production` only `WARN`. One XML, one value per environment.
 
 A lookup that finds nothing stays in the text as it is. The VWO's
@@ -335,8 +344,7 @@ The VWO's own `log4j2.xml` has a few things not to copy:
 - Its root logger writes only to the file appender; the `CONSOLE` appender is declared and never used. Application logs are in `restapi.log` inside the container, which is why the CI pipeline of [chapter 22](build-22-shipping.md) tails that file. TechOlympiad also logs to the console, so `docker compose logs -f api` shows its lines.
 - `%highlight{...}` wraps the whole layout, the file's included, so `restapi.log` is full of ANSI colour codes. Ours colours the console only.
 - The file appender has two triggering policies for the same moment, a `CronTriggeringPolicy` at midnight and a `TimeBasedTriggeringPolicy` with a daily pattern. One is enough.
-- `LOCALHOST`, `MANAGER` and `HOST-MANAGER` copy Tomcat's own log files. The loggers they listen to belong to Tomcat, which logs through its own JULI framework (Tomcat's variant of the JDK's
-built-in `java.util.logging`), outside the web application's Log4j2, so these appenders stay empty.
+- `LOCALHOST`, `MANAGER` and `HOST-MANAGER` copy Tomcat's own log files. The loggers they listen to belong to Tomcat. Tomcat logs through its own JULI framework, a variant of the JDK's built-in `java.util.logging`, outside the web application's Log4j2. So these appenders stay empty.
 
 ### `@Slf4j`
 
@@ -376,7 +384,7 @@ exception goes last and gets its stack trace printed:
 ### The pom
 
 `pom.xml`. The `spring-boot-starter-web` dependency gets an exclusion,
-and the rest is new; `spring-context-support` takes its version from the
+and the rest is new. `spring-context-support` takes its version from the
 Spring BOM of chapter 2:
 
 <div class="diff-view" data-diff-view>
@@ -552,7 +560,7 @@ entity's class name, because that is the region's default name.
 
 </div>
 
-Five lines are the VWO's; `hibernate.javax.cache.uri` is ours. Hibernate
+Five lines are the VWO's. `hibernate.javax.cache.uri` is ours. Hibernate
 looks the name up on the classpath itself, so it takes a plain
 `ehcache.xml` without `classpath:`.
 
@@ -579,9 +587,9 @@ import beats an on-demand (`*`) import, so `@Cache` here is Hibernate's.
 
 ### `@Cacheable` on the repositories
 
-`restAPI/repositories/ToContestDatesRepositoryImpl.java` (chapter 15;
-the method names follow the VWO's `VwoContestDatesRepositoryImpl`, keep
-yours):
+`restAPI/repositories/ToContestDatesRepositoryImpl.java` (chapter 15).
+The method names below follow the VWO's `VwoContestDatesRepositoryImpl`.
+If yours differ, keep yours:
 
 <div class="diff-view" data-diff-view>
 
@@ -621,7 +629,7 @@ yours):
 
 </div>
 
-The key is the `ToRole` constant; the value the boxed `Float`. A missing
+The key is the `ToRole` constant. The value is the boxed `Float`. A missing
 fee throws `NotFoundException` since chapter 18, and an exception is
 never cached.
 
@@ -655,13 +663,15 @@ public class CacheRepository {
 }
 ```
 
-This is the VWO's class without its `@EnableScheduling` and the
-`@Scheduled(fixedRate = 1000 * 60 * 60 * 6)` method that empties every
-cache every six hours: the TTL already bounds every entry. Unlike the
-other repositories it is a plain class without interface, as in the VWO.
-`getCacheNames()` lists the caches from `ehcache.xml`, the Hibernate
-region's name included, but that entry in Spring's cache manager is an
-unused copy: Hibernate's region lives in Hibernate's own cache manager.
+This is the VWO's class with two parts left out: its
+`@EnableScheduling`, and the `@Scheduled(fixedRate = 1000 * 60 * 60 * 6)`
+method that empties every cache every six hours. The TTL already bounds
+every entry. Unlike the other repositories, it is a plain class without
+an interface, as in the VWO.
+
+`getCacheNames()` lists the caches from `ehcache.xml`, including the
+Hibernate region's name. But that entry in Spring's cache manager is an
+unused copy. Hibernate's region lives in Hibernate's own cache manager.
 
 `restAPI/controllers/CacheController.java`
 
@@ -805,7 +815,7 @@ log4j2.hibernate=ERROR
 
 `restAPI/repositories/ToScoringRepositoryImpl.java` (chapter 16). Add
 the annotation, then one `log.info` at the end of each of the three
-methods; for `scoreRound`, with the `RoundResult` it returns:
+methods. For `scoreRound`, log the `RoundResult` it returns:
 
 <div class="diff-view" data-diff-view>
 
@@ -823,7 +833,7 @@ methods; for `scoreRound`, with the `RoundResult` it returns:
 
 </div>
 
-Use your own variable names; the point is one line per business action,
+Use your own variable names. The point is one line per business action,
 at `INFO`, with the numbers that matter afterwards.
 
 ### Run it
@@ -878,8 +888,8 @@ docker compose logs -f api
 - **`ClassCastException: Invalid key type`** from Ehcache: a cache declares `key-type`, and a method passes something else. Leave the types out.
 - **No `org.hibernate.SQL` lines at all**: `log4j2.hibernate` is missing from the environment file, or the WAR was built without `-Plocal`.
 - **The log level is `ERROR` whatever you set**: the `bundle:environment` lookup failed, so Log4j2 could not parse the level. There is no `environment.properties` on the classpath.
-- **`SLF4J: Class path contains multiple SLF4J bindings`** and `log4j2.xml` is ignored: Logback is still there. Run the `dependency:tree` check; some starter still brings `spring-boot-starter-logging`.
-- **A folder called `${sys:catalina.base}` appears in your project**: some code ran Log4j2 outside Tomcat with the VWO's configuration. Ours writes to `./logs` instead; add `/logs/` to `.gitignore` if that happens.
+- **`SLF4J: Class path contains multiple SLF4J bindings`** and `log4j2.xml` is ignored: Logback is still there. Run the `dependency:tree` check. Some starter still brings `spring-boot-starter-logging`.
+- **A folder called `${sys:catalina.base}` appears in your project**: some code ran Log4j2 outside Tomcat with the VWO's configuration. Ours writes to `./logs` instead. Add `/logs/` to `.gitignore` if that happens.
 - **The second call still runs the query**: the cached method is called from inside its own class, or it is `private`. Only calls through the proxy are cached.
 - **`CacheException: Couldn't load URI from ehcache.xml`**: Hibernate did not find the file. The value is a classpath name, without `classpath:`.
 

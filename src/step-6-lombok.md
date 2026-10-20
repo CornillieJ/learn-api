@@ -69,14 +69,14 @@ private final ScholenRepository repository;
 ```
 
 Entities and controllers depend on Lombok this way throughout the
-project; without the IDE plugin you'll see phantom "cannot find
+project. Without the IDE plugin you'll see phantom "cannot find
 symbol" errors on fields and methods that Lombok generates for you.
 
 `@Slf4j` (`General.java`) gives the class a `log` field with no
 explicit declaration. `security/User.java` uses `@Value @Builder` to
-model an immutable user: `@Value` makes every field `private final`
-and generates getters (no setters), and `@Builder` adds a fluent
-builder for construction.
+model an immutable user. `@Value` makes every field `private final`
+and generates getters (no setters). `@Builder` adds a fluent builder
+for construction.
 
 ### 6.2 Mental model: Lombok ↔ C# features
 
@@ -103,7 +103,7 @@ mutable, non-final classes it can proxy.
 <div class="callout-label">.NET gotchas</div>
 
 - **Don't put `@Data` on an entity.** Its `equals`/`hashCode`/`toString` touch every field, including lazy associations: that can trigger extra queries, `LazyInitializationException`, or infinite recursion between two entities that reference each other. The repo's entities use `@Getter @Setter`, which avoids this.
-- **`boolean` vs `Boolean` getters.** A primitive `boolean active` gets `isActive()`; a boxed `Boolean active` gets `getActive()`. Jackson derives JSON names from these, so the choice changes the API.
+- **`boolean` vs `Boolean` getters.** A primitive `boolean active` gets `isActive()`. A boxed `Boolean active` gets `getActive()`. Jackson derives JSON names from these, so the choice changes the API.
 - **The IDE needs annotation processing.** Install the Lombok plugin and enable annotation processing in IntelliJ, otherwise the editor reports errors that `mvn` doesn't.
 - **Generated code can't be stepped into**, and "Find usages" on a field won't show callers of its getter. Delombok when you need to see it.
 
@@ -165,7 +165,7 @@ mutable, non-final classes it can proxy.
 <li>Maven skipped compilation</li>
 <li>The interface needs a <code>default</code> implementation</li>
 </ol>
-<p class="quiz-explain">Lombok runs as an annotation processor during compilation. Maven runs it; an unconfigured IDE doesn't, so it can't see the generated methods.</p>
+<p class="quiz-explain">Lombok runs as an annotation processor during compilation. Maven runs it. An unconfigured IDE doesn't, so the IDE can't see the generated methods.</p>
 </div>
 
 ### Flashcards
@@ -182,12 +182,12 @@ mutable, non-final classes it can proxy.
 <details class="qa">
 <summary>Self-check: what does <code>@Getter(onMethod_ = {@Override})</code> generate, and why is <code>@Override</code> needed there?</summary>
 <div class="ans">
-It generates a getter method that also satisfies an interface's
-abstract getter; signature matching alone is what makes it satisfy that
-interface. The <code>@Override</code> passed into the Lombok config is
-a compile-time safety net: it makes the build fail if the generated
-method doesn't actually match the interface method it's meant to
-implement, catching a signature mismatch early instead of at runtime.
+It generates a getter method. The getter's signature matches the
+interface's abstract getter, and that match alone makes it implement
+the interface method. The <code>@Override</code> passed into the Lombok
+config is a compile-time safety net. If the generated method doesn't
+actually match the interface method it's meant to implement, the build
+fails. You catch a signature mismatch early instead of at runtime.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>
@@ -198,7 +198,7 @@ implement, catching a signature mismatch early instead of at runtime.
 DTOs are immutable data carriers, which is exactly what a
 <code>record</code> is. Entities must have a no-args constructor, mutable
 fields and a non-final class so Hibernate can instantiate, populate and
-proxy them; records give you none of those, so entities use
+proxy them. Records give you none of those, so entities use
 <code>@Getter @Setter @NoArgsConstructor</code>.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>

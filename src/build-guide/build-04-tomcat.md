@@ -124,7 +124,7 @@ then does nothing: Tomcat only looks for
 `META-INF/services/jakarta.servlet.ServletContainerInitializer`, while
 `spring-web` 5.3 ships the `javax` one. No Spring log line appears, and
 every URL returns 404. The image tag must say `9`. The VWO's `FROM tomcat:9`
-gets that right, but leaves the JDK floating (see [chapter 1](build-01-toolbox.md));
+gets that right, but leaves the JDK floating (see [chapter 1](build-01-toolbox.md)).
 `tomcat:9-jdk17` pins both.
 
 </div>
@@ -140,7 +140,7 @@ gets that right, but leaves the JDK floating (see [chapter 1](build-01-toolbox.m
 | `conf/logging.properties` | Where Tomcat's own log lines go |
 | `webapps/` | Empty. The image moves Tomcat's sample apps to `webapps.dist/` |
 | `logs/` | Tomcat's log files |
-| `bin/catalina.sh` | The start script; the image's command is `catalina.sh run` |
+| `bin/catalina.sh` | The start script. The image's command is `catalina.sh run` |
 
 </div>
 
@@ -173,16 +173,16 @@ comes from the file name:
 
 This is why the build's file name (`techolympiadAPI.war`) and the deployed
 name (`techolympiad.war`) differ, exactly like the VWO's `restAPI.war` and
-`database.war`. The build produces one artifact; whoever deploys it
+`database.war`. The build produces one artifact, and whoever deploys it
 chooses the URL. The VWO pipeline passes `WAR_FILENAME` (default
 `database.war`) into the `Dockerfile` for the same reason.
 
 The application cannot pick its own context path. The VWO has a
-`src/main/webapp/META-INF/context.xml` that says `<Context path="/servlet">`,
-and Tomcat ignores that attribute for applications deployed from
-`webapps/`: the path always comes from the file name. The file still
-matters for its other setting (a cookie option); we have no use for it and
-leave it out.
+`src/main/webapp/META-INF/context.xml` that says `<Context path="/servlet">`.
+Tomcat ignores that attribute for applications deployed from `webapps/`:
+the path always comes from the file name. The file still matters for its
+other setting (a cookie option). We have no use for that setting, so we
+leave the file out.
 
 ### One class loader per application
 
@@ -221,7 +221,7 @@ The container listens on 8080. `ports: "8081:8080"` publishes it as 8081
 on your machine, because the VWO's local API already uses 8080: its
 script runs the container with `--network host`, so Tomcat binds 8080 on
 the host directly. Port 3307 is likewise taken by the VWO's database.
-`TZ: Europe/Brussels` sets the JVM's default time zone; it matters from
+`TZ: Europe/Brussels` sets the JVM's default time zone. It matters from
 the moment the API reads dates and times, and the VWO sets it in every
 environment.
 
@@ -244,7 +244,7 @@ Tomcat also writes files in `/usr/local/tomcat/logs`:
 
 </div>
 
-The application's Logback output is not in these files; it only goes to
+The application's Logback output is not in these files. It only goes to
 stdout. In chapter 21 Log4j2 adds a file of our own next to them, the way
 the VWO pipeline reads `/usr/local/tomcat/logs/restapi.log` after a
 deploy.
@@ -312,7 +312,7 @@ WAR with both in `WEB-INF/classes`. Nothing should be listening on port
 <li><label><input type="checkbox"><span>Read your requests in the access log: <code>docker compose exec api sh -c 'tail /usr/local/tomcat/logs/localhost_access_log.*'</code>.</span></label></li>
 <li><label><input type="checkbox"><span>Watch a hot redeploy: run <code>docker compose logs -f api</code> in one terminal and <code>touch target/techolympiadAPI.war</code> in another. Within about ten seconds Tomcat deploys again.</span></label></li>
 <li><label><input type="checkbox"><span>Do the real cycle once: <code>mvn -q package &amp;&amp; docker compose restart api</code>, and follow the log again.</span></label></li>
-<li><label><input type="checkbox"><span>Stop it when you are done for the day: <code>docker compose stop</code>. <code>docker compose down</code> also removes the container; both are fine, nothing is stored in it.</span></label></li>
+<li><label><input type="checkbox"><span>Stop it when you are done for the day: <code>docker compose stop</code>. <code>docker compose down</code> also removes the container. Both are fine, because nothing is stored in it.</span></label></li>
 <li><label><input type="checkbox"><span>Commit: <code>git add -A &amp;&amp; git commit -m "Run the WAR on Tomcat 9"</code>.</span></label></li>
 </ul>
 
@@ -364,7 +364,7 @@ services:
 2. Tomcat 9 (`javax.servlet`) on Java 17, the same image as `vwo-local-restart`.
 3. A fixed container name instead of the generated `techolympiad-api-1`, so `docker ps` and `docker logs techolympiad-api` read well.
 4. The JVM's default time zone, as in the VWO's `Dockerfile`.
-5. Host port 8081 to Tomcat's 8080; 8080 on the host belongs to the VWO's local API.
+5. Host port 8081 to Tomcat's 8080. Port 8080 on the host belongs to the VWO's local API.
 6. Our build output appears in `webapps/` under the deployed name, which makes the context path `/techolympiad`. `:ro` stops the container from changing the file.
 
 </div>
@@ -396,9 +396,10 @@ Compare it with the embedded run of chapter 3: there are no
 `Tomcat initialized with port(s)` and `Tomcat started on port(s)` lines,
 because Spring Boot started no server. The Tomcat lines in between are
 the chain from chapter 3 happening for real. You will also see a line
-about JARs that were scanned for TLDs and contained none; that is Tomcat
-looking for the tag library descriptors of JSP (JavaServer Pages, Java's
-old server-side HTML templates, a bit like Razor views), harmless.
+about JARs that were scanned for TLDs and contained none. That line is
+harmless: it is Tomcat looking for the tag library descriptors of JSP
+(JavaServer Pages, Java's old server-side HTML templates, a bit like
+Razor views).
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/
@@ -425,7 +426,7 @@ techolympiad
 techolympiad.war
 ```
 
-The `.war` is your mounted file; `techolympiad/` is the copy Tomcat
+The `.war` is your mounted file. `techolympiad/` is the copy Tomcat
 unpacked and actually runs.
 
 <div class="callout danger">
@@ -434,7 +435,7 @@ unpacked and actually runs.
 - **`Bind for 0.0.0.0:8081 failed: port is already allocated`**: something holds 8081, usually the embedded run from chapter 3. Stop it, then `docker compose up -d` again.
 - **`mvn package` fails because `target/techolympiadAPI.war` is a directory**: you ran `docker compose up` before the first build. Docker creates a missing bind-mount source as an empty directory, owned by root. Run `docker compose down`, remove it with `sudo rm -rf target/techolympiadAPI.war`, build, and start again.
 - **Every URL is 404 and no Spring banner appears**: the WAR deployed but Spring did not start. Check the image tag says `9`, and that `web.xml` has `version="3.1"` and no `metadata-complete="true"`.
-- **`Context [/techolympiad] startup failed due to previous errors`**: Spring threw during startup. The cause is a few lines higher in `docker compose logs api`, or in `localhost.<date>.log`; a missing `api.properties` shows up here.
+- **`Context [/techolympiad] startup failed due to previous errors`**: Spring threw during startup. The cause is a few lines higher in `docker compose logs api`, or in `localhost.<date>.log`. A missing `api.properties` shows up here.
 - **The old version is still running after a build**: you rebuilt without restarting. `docker compose restart api`.
 - **`http://localhost:8081/techolympiadAPI/` is 404**: the URL follows the deployed name in `webapps/`, which is `techolympiad.war`.
 
@@ -447,7 +448,7 @@ unpacked and actually runs.
 <ol class="quiz-options">
 <li><code>/servlet</code>, because the application's own <code>context.xml</code> wins<p class="quiz-whynot">Tomcat ignores the <code>path</code> attribute for applications deployed from <code>webapps/</code>.</p></li>
 <li data-correct><code>/database</code>, from the file name<p class="quiz-why">For anything in the host's <code>appBase</code>, the context path is always derived from the file or folder name.</p></li>
-<li><code>/restAPI</code>, from the <code>finalName</code> in the <code>pom.xml</code><p class="quiz-whynot">Tomcat never sees the <code>pom.xml</code>; the WAR was renamed when it was copied into the image.</p></li>
+<li><code>/restAPI</code>, from the <code>finalName</code> in the <code>pom.xml</code><p class="quiz-whynot">Tomcat never sees the <code>pom.xml</code>. The WAR was renamed when it was copied into the image.</p></li>
 </ol>
 </div>
 
@@ -455,8 +456,8 @@ unpacked and actually runs.
 <p class="quiz-q"><code>curl http://localhost:8081/</code> returns Tomcat's HTML 404 page, while <code>curl http://localhost:8081/techolympiad/</code> returns a JSON 404. What does that tell you?</p>
 <ol class="quiz-options">
 <li>The application failed to deploy<p class="quiz-whynot">A failed deployment means no context at <code>/techolympiad</code>, which would give Tomcat's HTML page for both URLs.</p></li>
-<li data-correct>The application runs; it simply has no endpoint at <code>/</code> yet<p class="quiz-why">The JSON body comes from Spring Boot's error handling, so the request reached our application.</p></li>
-<li>Tomcat's <code>webapps/ROOT</code> is broken<p class="quiz-whynot">The image has no ROOT application at all; a 404 at <code>/</code> is the expected answer.</p></li>
+<li data-correct>The application runs, but it has no endpoint at <code>/</code> yet<p class="quiz-why">The JSON body comes from Spring Boot's error handling, so the request reached our application.</p></li>
+<li>Tomcat's <code>webapps/ROOT</code> is broken<p class="quiz-whynot">The image has no ROOT application at all, so a 404 at <code>/</code> is the expected answer.</p></li>
 </ol>
 </div>
 

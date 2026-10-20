@@ -204,13 +204,13 @@ bean name, the same name a `@Bean` method gets from its method name.
 </beans>
 ```
 
-1. Each `xmlns:` prefix brings in a Spring XML namespace. `beans` is plain bean definitions; `context` and `tx` are shorthand elements that each register a set of infrastructure beans. `xsi:schemaLocation` maps every namespace to its XSD so the parser can validate the file. Spring resolves those XSDs from its own jars, so no network is needed at startup.
-2. Scans `be.techolympiad` and its subpackages for `@Component` classes. `@SpringBootApplication(scanBasePackages = "be.techolympiad.common")` already scans the same classes; scanning a class twice yields the same bean definition, which Spring accepts. The VWO has the same overlap (`be.vwo` here, `be.vwo.common` in `OpenApiApplication`).
+1. Each `xmlns:` prefix brings in a Spring XML namespace. `beans` holds plain bean definitions. `context` and `tx` hold shorthand elements, and each element registers a set of infrastructure beans. `xsi:schemaLocation` maps every namespace to its XSD so the parser can validate the file. Spring resolves those XSDs from its own jars, so no network is needed at startup.
+2. Scans `be.techolympiad` and its subpackages for `@Component` classes. `@SpringBootApplication(scanBasePackages = "be.techolympiad.common")` already scans the same classes. Scanning a class twice yields the same bean definition, and Spring accepts that. The VWO has the same overlap (`be.vwo` here, `be.vwo.common` in `OpenApiApplication`).
 3. Turns on `@Transactional`: Spring wraps every bean with `@Transactional` methods in a proxy that starts and ends transactions. [Chapter 10](build-10-dao-layer.md) opens that proxy up.
 4. Resolves `${...}` placeholders in bean definitions. It reads the locations listed here plus every property source in Spring's `Environment`, which is where `environment.properties` lands through `@PropertySource`. Spring Boot registers its own placeholder configurer only when none exists, so this one replaces it.
 5. A `LocalSessionFactoryBean` is a factory for the real bean, a Hibernate `SessionFactory`. The bean named `toRW` is that `SessionFactory`.
 6. Properties set here are added after the config file is read, so they override it. The shared settings live in `hibernate_TO.cfg.xml`; only what differs per factory (the credentials) and what differs per environment (the URL) lives here.
-7. The transaction manager gets the session factory it manages. The property is called `entityManagerFactory` because this is the JPA transaction manager; a Hibernate 5 `SessionFactory` is also a JPA `EntityManagerFactory`, so it fits.
+7. The transaction manager gets the session factory it manages. The property is called `entityManagerFactory` because this is the JPA transaction manager. A Hibernate 5 `SessionFactory` is also a JPA `EntityManagerFactory`, so it fits.
 8. A qualifier is an extra label for selecting a bean. `@Transactional("transactionToRW")` finds this manager through it.
 
 </div>
@@ -253,16 +253,21 @@ Spring hands you the right one.
 
 `LocalSessionFactoryBean` is a Spring
 <dfn data-def="A bean that is itself a factory: Spring calls its getObject() and registers the result under the bean's name. The factory itself is reachable as &name.">FactoryBean</dfn>.
-Spring creates it, sets its properties, calls `afterPropertiesSet()`,
-in which it builds the `SessionFactory`, and then registers the result of
-`getObject()` under the bean name. Injecting a `SessionFactory` named
-`toR` therefore gives you the Hibernate object, never the Spring factory.
+At startup, Spring does this with it:
 
-It also sets `hibernate.current_session_context_class` to Spring's own
-`SpringSessionContext`. That one setting is what makes
+1. Spring creates the `LocalSessionFactoryBean` and sets its properties.
+2. Spring calls `afterPropertiesSet()`. In that method, the factory bean builds the `SessionFactory`.
+3. Spring registers the result of `getObject()` under the bean name.
+
+Injecting a `SessionFactory` named `toR` therefore gives you the
+Hibernate object, never the Spring factory.
+
+`LocalSessionFactoryBean` also sets
+`hibernate.current_session_context_class` to Spring's own
+`SpringSessionContext`. That one setting makes
 `sessionFactory.getCurrentSession()` return the session of the running
-Spring transaction, which is why neither the VWO configuration nor ours
-sets it.
+Spring transaction. Because the factory bean already sets it, neither
+the VWO configuration nor ours sets it.
 
 ### hibernate_TO.cfg.xml
 
@@ -293,7 +298,7 @@ uses <dfn data-def="An old, stable JDBC connection pool library. Hibernate integ
 
 Hibernate picks its connection provider at startup. It switches to
 c3p0 when the `hibernate-c3p0` module is on the classpath and at least
-one `hibernate.c3p0.*` property is set; otherwise it falls back to a
+one `hibernate.c3p0.*` property is set. Otherwise it falls back to a
 built-in pool and logs `HHH10001002: Using Hibernate built-in connection
 pool (not for production use!)`. Each `SessionFactory` gets its own pool,
 so TechOlympiad runs two.
@@ -363,12 +368,20 @@ finds two, and fails on the first call with
 'org.springframework.transaction.TransactionManager' available: expected
 single matching bean but found 2`.
 
-`JpaTransactionManager` starts a transaction by opening a `Session` on
-its factory, beginning a JDBC transaction on it, and binding the session
-to the current thread. When the method returns, it flushes the session's
-changes (sends the pending `INSERT`s and `UPDATE`s as SQL, like
-`SaveChanges` without the commit), commits, and unbinds it. That binding is how
-`getCurrentSession()` finds "the current" session in chapter 10.
+When a `@Transactional` method starts, `JpaTransactionManager`:
+
+1. opens a `Session` on its factory;
+2. begins a JDBC transaction on that session;
+3. binds the session to the current thread.
+
+When the method returns, the manager:
+
+1. flushes the session's changes (sends the pending `INSERT`s and `UPDATE`s as SQL, like `SaveChanges` without the commit);
+2. commits;
+3. unbinds the session from the thread.
+
+That binding is how `getCurrentSession()` finds "the current" session
+in chapter 10.
 
 ### Why two factories
 
@@ -380,16 +393,16 @@ every write method uses `toRW`. A read path that sends an `UPDATE`, through
 a bug or an injected query, reaches MariaDB as `to_read` and is refused.
 
 You might expect `@Transactional(readOnly = true)` to provide that
-protection on its own. In this setup it does not. Spring's
-`JpaTransactionManager` hands the begin of a transaction to a
-"JPA dialect". It only gets Hibernate's dialect when its factory comes
-from Spring's JPA factory beans; a plain Hibernate `SessionFactory`, like
-ours, gets the default one, and the default one ignores `readOnly`. The
-flag is still recorded
+protection on its own. In this setup it does not. To begin a
+transaction, Spring's `JpaTransactionManager` calls a "JPA dialect".
+The manager gets Hibernate's JPA dialect only when its factory comes
+from Spring's JPA factory beans. A plain Hibernate `SessionFactory`,
+like ours, gets the default JPA dialect, and the default one ignores
+`readOnly`. Spring still records the flag
 (`TransactionSynchronizationManager.isCurrentTransactionReadOnly()`
-returns `true`), but the Hibernate session flushes changes as usual and
-the JDBC connection is not marked read-only. What keeps data safe is the
-database account behind `toR`.
+returns `true`). But the Hibernate session flushes changes as usual,
+and the JDBC connection is not marked read-only. What keeps data safe is
+the database account behind `toR`.
 
 <div class="callout note">
 <div class="callout-label">Seen in a test run</div>
@@ -399,7 +412,7 @@ that calls `session.save(...)` on the read factory: Hibernate sends the
 `INSERT` at commit, and MariaDB answers
 `INSERT command denied to user 'to_read'`. Spring also has a
 `HibernateTransactionManager`, which does switch the session to manual
-flushing for read-only transactions; the VWO uses the JPA one.
+flushing for read-only transactions. The VWO uses the JPA one.
 
 </div>
 
@@ -412,11 +425,12 @@ Boot's JPA support on the classpath. Without the exclusion, Spring Boot
 would try to build a `DataSource` from `spring.datasource.*` properties,
 find none, and stop the deployment with
 `Failed to configure a DataSource: 'url' attribute is not specified and
-no embedded datasource could be configured.` With it excluded, there is
-no `DataSource` bean at all, and Boot's Hibernate and Spring Data JPA
-(Spring's library that generates repository classes from interfaces)
-auto-configuration, which both need one, stay off too. Our two pools
-live inside the session factories, where Boot does not look.
+no embedded datasource could be configured.` With the exclusion, there
+is no `DataSource` bean at all. Boot's auto-configuration for Hibernate
+and for Spring Data JPA (Spring's library that generates repository
+classes from interfaces) needs a `DataSource` bean, so it stays off too.
+Our two pools live inside the session factories, where Boot does not
+look.
 
 <div class="callout note">
 <div class="callout-label">The older way, still in the VWO</div>
@@ -491,7 +505,7 @@ Lombok, swagger-core and springdoc, and no persistence dependencies yet.
 The starter brings `spring-orm` (`LocalSessionFactoryBean`,
 `JpaTransactionManager`), `spring-data-jpa` (the `Repository` marker of
 [chapter 11](build-11-repository-controller.md)) and Hibernate itself.
-Declaring `hibernate-core` again pins the version the VWO pins; it is the
+Declaring `hibernate-core` again pins the version the VWO pins. It is the
 same 5.6.15 the starter would pick. The VWO also declares
 `hibernate-entitymanager`, which since Hibernate 5.2 is an empty
 artifact pointing at `hibernate-core`, so we skip it.
@@ -620,14 +634,16 @@ jar, so the file loads without network access.
 </beans>
 ```
 
-Three VWO details are left out on purpose. Its schema locations point at
-versioned files such as `spring-beans-4.0.xsd`; Spring 5 maps every
-version to its current schema, so the unversioned names say what
-actually happens. Its `DeviceResolverHandlerInterceptor` bean (from the
-old Spring Mobile library) is declared but never added to Spring MVC's
-interceptor list (code that runs around controller calls, like an MVC
-action filter), so it never runs. And the cache lines wait for
-chapter 21.
+Three VWO details are left out on purpose:
+
+- The VWO's schema locations point at versioned files such as
+  `spring-beans-4.0.xsd`. Spring 5 maps every version to its current
+  schema, so the unversioned names say what actually happens.
+- The VWO declares a `DeviceResolverHandlerInterceptor` bean (from the
+  old Spring Mobile library). It never adds that bean to Spring MVC's
+  interceptor list (code that runs around controller calls, like an MVC
+  action filter), so the bean never runs.
+- The cache lines wait for chapter 21.
 
 ### The application class
 
@@ -671,11 +687,12 @@ HHH000400: Using dialect: org.hibernate.dialect.MariaDB103Dialect
 Deployment of web application archive [/usr/local/tomcat/webapps/techolympiad.war] has finished in [...] ms
 ```
 
-(Each line is prefixed with a timestamp and logger name; a few other
-`HHH` lines, such as the JTA platform (JTA is the Java Transaction API for
-distributed transactions, like `System.Transactions`; unused here), appear
-in between.) Now ask MariaDB
-who is connected:
+Each real line starts with a timestamp and a logger name. A few other
+`HHH` lines appear in between, such as the one about the JTA platform.
+JTA is the Java Transaction API for distributed transactions, like
+`System.Transactions`, and this API does not use it.
+
+Now ask MariaDB who is connected:
 
 ```bash
 docker exec techolympiad-db mariadb -uroot -pdevpass -e \

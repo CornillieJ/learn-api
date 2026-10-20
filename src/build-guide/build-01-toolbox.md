@@ -95,13 +95,15 @@ bytecode targets Java 17. Two facts follow from that:
    on 21 or 25. The reverse fails with `UnsupportedClassVersionError`.
 2. **The ceiling is Spring Boot 2.7, not Java.** Spring Boot 3 and Spring 6
    need Java 17 or newer, but they also move every `javax.*` import to
-   `jakarta.*` and bring Hibernate 6. (`javax.*` holds the Java EE
-   standard APIs this code uses, such as servlets, JPA and validation.
-   When Oracle handed Java EE to the Eclipse Foundation it became Jakarta
-   EE, and from version 9 on those packages are called `jakarta.*`.) That migration, not the Java
+   `jakarta.*` and bring Hibernate 6. That migration, not the Java
    version, is what keeps the VWO API on Boot 2.7. Tutorials written for
    Boot 3 will show `jakarta.persistence.Entity` where our code says
    `javax.persistence.Entity`.
+
+   `javax.*` holds the Java EE standard APIs this code uses, such as
+   servlets, JPA and validation. Oracle handed Java EE to the Eclipse
+   Foundation, which renamed it Jakarta EE. From version 9 on, those
+   packages are called `jakarta.*`.
 
 <div class="callout danger">
 <div class="callout-label">Gotcha</div>
@@ -129,7 +131,7 @@ purpose: every project states its own.
 Maven is itself a Java program, and it compiles your code with the JDK it
 runs on. `mvn -v` shows both versions, and the second one, `Java version`,
 is the one that matters. The first build of a project downloads every
-dependency into `~/.m2/repository`; later builds reuse it.
+dependency into `~/.m2/repository`. Later builds reuse it.
 
 The VWO API does not use the Maven wrapper (`mvnw`), so neither do we.
 mise plays that role instead.
@@ -170,7 +172,7 @@ The public class name must match the file name: `Hello` lives in
 <div class="quiz" data-quiz>
 <p class="quiz-q">The VWO API is compiled with <code>&lt;release&gt;17&lt;/release&gt;</code>. Production runs <code>FROM tomcat:9</code>, which ships Java 25. What happens?</p>
 <ol class="quiz-options">
-<li>Tomcat refuses to deploy the WAR because the versions differ<p class="quiz-whynot">Tomcat does not compare versions; only the JVM's <dfn data-def="The part of the JVM that finds .class files (in jars and folders) and loads them into memory.">class loader</dfn> checks the class file version.</p></li>
+<li>Tomcat refuses to deploy the WAR because the versions differ<p class="quiz-whynot">Tomcat does not compare versions. Only the JVM's <dfn data-def="The part of the JVM that finds .class files (in jars and folders) and loads them into memory.">class loader</dfn> checks the class file version.</p></li>
 <li data-correct>It runs: a newer JVM loads older bytecode<p class="quiz-why">Class files carry a version number, and a JVM accepts its own version and every older one.</p></li>
 <li>It fails with <code>UnsupportedClassVersionError</code><p class="quiz-whynot">That error is the reverse case: bytecode newer than the JVM running it.</p></li>
 </ol>

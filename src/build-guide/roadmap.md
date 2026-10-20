@@ -87,7 +87,7 @@ the VWO files alongside.
 <div class="callout-label">Where the code lives</div>
 
 TechOlympiad gets its own folder and repository, `~/Coding/techolympiad`,
-next to the VWO API. The chapters in this book describe the steps; the
+next to the VWO API. The chapters in this book describe the steps. The
 repository holds the result, with one commit per chapter.
 
 </div>

@@ -9,13 +9,15 @@
 <div class="level overview">
 
 This is the step where `vwo-api` stops looking like magic. Every object
-in the API is a Spring **bean**: created, wired and wrapped by the
-container, like services registered in `Program.cs`, except found by
-scanning annotations. Two things differ sharply from ASP.NET Core:
-beans are **singletons by default** (there is no per-request "scoped"
-`DbContext`-style lifetime doing the work for you), and the app runs as
-a **WAR inside an external Tomcat 9**, not `dotnet run` and not a
-self-hosted jar.
+in the API is a Spring **bean**. The container creates, wires and wraps
+each bean, like services registered in `Program.cs`. The difference is
+that Spring finds beans by scanning annotations. Two things differ
+sharply from ASP.NET Core:
+
+- Beans are **singletons by default**. There is no per-request "scoped"
+  `DbContext`-style lifetime doing the work for you.
+- The app runs as a **WAR inside an external Tomcat 9**. It does not use
+  `dotnet run`-style startup, and it is not a self-hosted jar.
 
 **After this step you can:**
 
@@ -116,9 +118,10 @@ public class ScholenRepositoryImpl implements ScholenRepository {
 Component scanning (`@SpringBootApplication(scanBasePackages = "be.vwo.common")`)
 finds every `@Repository/@RestController/@Service`, like
 auto-registering services in `Program.cs`. Beans are singletons by
-default. Proxies: `@Transactional`/`@Cacheable` work through generated
-proxies; a call on `this` skips them, hence `@Resource @Lazy private
-XImpl self;` in `KangoeroePoolsParticipantsRepositoryImpl`.
+default. `@Transactional` and `@Cacheable` work through generated
+proxies. A call on `this` skips the proxy. That is why
+`KangoeroePoolsParticipantsRepositoryImpl` has `@Resource @Lazy private
+XImpl self;`.
 
 Free alternative: 3.1 above (the official reference).
 
@@ -126,9 +129,9 @@ Free alternative: 3.1 above (the official reference).
 
 Video: [https://www.youtube.com/watch?v=vtPkZShrvXQ](https://www.youtube.com/watch?v=vtPkZShrvXQ)
 · Write-up: [https://www.freecodecamp.org/news/spring-boot-tutorial/](https://www.freecodecamp.org/news/spring-boot-tutorial/)
-✅ write-up dated 6 Sep 2019, 2-hour course, HTTP methods, in-memory
-DB, N-tier architecture, DI via autowired beans, interfaces, Postman.
-Predates Boot 3, so it's `javax.*` era.
+✅ write-up dated 6 Sep 2019. The 2-hour course covers HTTP methods, an
+in-memory DB, N-tier architecture, DI via autowired beans, interfaces
+and Postman. It predates Boot 3, so it's `javax.*` era.
 
 ```java
 @RestController
@@ -142,8 +145,8 @@ public class SchoolController implements be.vwo.common.restAPI.controllers.Schoo
 
 <div class="callout note">
 <div class="callout-label">Caveat</div>
-The course runs a <code>.jar</code> with embedded Tomcat and no real DB;
-this project is a WAR on external Tomcat with Hibernate.
+The course runs a <code>.jar</code> with embedded Tomcat and no real DB.
+This project is a WAR on external Tomcat with Hibernate.
 </div>
 
 ### 3.4 📖 Deploying a Spring Boot app as a WAR on external Tomcat
@@ -171,10 +174,11 @@ public class OpenApiApplication extends SpringBootServletInitializer {
 }
 ```
 
-The WAR file name is the context path (`Dockerfile`:
-`COPY target/restAPI.war …/webapps/${WAR_FILENAME}`, default
-`database.war`), so a WAR named `restAPI.war` would get a different
-URL entirely.
+The WAR file name is the context path. The `Dockerfile` copies the
+build output under a new name:
+`COPY target/restAPI.war …/webapps/${WAR_FILENAME}`, and the default
+name is `database.war`. A WAR deployed as `restAPI.war` would get a
+different URL entirely.
 
 ### 3.5 Mental model: singletons, not scoped services
 
@@ -195,7 +199,7 @@ the current transaction (Step 4). Any mutable instance field on a bean is
 a concurrency bug waiting to happen.
 
 Constructor injection works like in .NET. Since Spring 4.3 a class with a
-single constructor doesn't even need `@Autowired`; `ScholenRepositoryImpl`
+single constructor doesn't even need `@Autowired`. `ScholenRepositoryImpl`
 has it anyway, which is harmless.
 
 ### 3.6 Mental model: proxies and self-invocation
@@ -235,7 +239,7 @@ public class KangoeroePoolsParticipantsRepositoryImpl ... {
 
 - `@Transactional` / `@Cacheable` on a **private** method: ignored. In Spring 5.3 annotation-driven transactions apply to public methods only.
 - On a **`final`** method: a subclass proxy can't override it, so nothing is intercepted.
-- **Self-invocation** (`this.inner()`): bypasses the proxy. Fix by moving the method to another bean, or inject the proxy into itself as the repo does with `@Resource @Lazy ... self` (the `@Lazy` breaks the circular reference at startup).
+- **Self-invocation** (`this.inner()`): bypasses the proxy. To fix it, move the method to another bean. Or inject the proxy into the bean itself, as the repo does with `@Resource @Lazy ... self` (the `@Lazy` breaks the circular reference at startup).
 - None of these produce an error or a warning. You just get no transaction.
 
 </div>
@@ -264,7 +268,7 @@ decide. It's the IIS-application-path situation, not the Kestrel one.
 <ul class="checklist">
 <li><label><input type="checkbox"><span>With the Knowledge File §7 open, trace <code>GET /api/v2/school/{id}</code> and name the bean at each hop.</span></label></li>
 <li><label><input type="checkbox"><span>In <code>Dockerfile</code> and <code>.gitlab-ci.yml</code> find where <code>database.war</code> is named, then say what URL a WAR named <code>restAPI.war</code> would get.</span></label></li>
-<li><label><input type="checkbox"><span>In <code>applicationContextAPI.xml</code>, find the component scan, <code>tx:annotation-driven</code> and the <code>vwoRW</code> <code>LocalSessionFactoryBean</code>; say which of them a .NET app would put in <code>Program.cs</code>.</span></label></li>
+<li><label><input type="checkbox"><span>In <code>applicationContextAPI.xml</code>, find the component scan, <code>tx:annotation-driven</code> and the <code>vwoRW</code> <code>LocalSessionFactoryBean</code>. Say which of them a .NET app would put in <code>Program.cs</code>.</span></label></li>
 <li><label><input type="checkbox"><span>In <code>KangoeroePoolsParticipantsRepositoryImpl</code>, find every call made through <code>self</code> and, for one of them, explain what would break if it were called on <code>this</code>.</span></label></li>
 </ul>
 
@@ -354,9 +358,9 @@ decide. It's the IIS-application-path situation, not the Kestrel one.
 <div class="ans">
 Spring beans are singletons by default: one shared instance serves
 every request. If a repository or DAO kept per-request state in an
-instance field, concurrent requests would corrupt each other's data;
-all request-scoped state has to live in method parameters/locals or the
-Hibernate <code>Session</code>, never in bean fields.
+instance field, concurrent requests would corrupt each other's data.
+All request-scoped state has to live in method parameters/locals or in
+the Hibernate <code>Session</code>, never in bean fields.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

@@ -1,7 +1,7 @@
 # A Short Personal Plan
 
 Six milestones. Each has a **done when** so you know when to move on.
-Tick them off; the boxes are remembered in this browser.
+Tick them off. This browser remembers the boxes you tick.
 
 <ul class="checklist">
 <li><label><input type="checkbox"><span><strong>Set up.</strong> Install a JDK (21 or newer recommended, Knowledge File §14.1), Maven, and IntelliJ with the Lombok plugin and annotation processing enabled. <em>Done when</em> <code>ApiUser</code> shows no red "cannot find symbol" errors.</span></label></li>

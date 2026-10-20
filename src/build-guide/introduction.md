@@ -39,11 +39,12 @@ written down.
 
 </div>
 
-If you come from .NET, three of these map almost one to one: JPA is a
-standard API for ORMs, close to the style of EF Core's `DbContext` API,
-and Hibernate is the library that implements it; Spring plays the role of
-ASP.NET Core and its dependency injection; Maven is MSBuild and NuGet in
-one tool.
+If you come from .NET, three of these map almost one to one:
+
+- **JPA and Hibernate.** JPA is a standard API for ORMs, close to the style
+  of EF Core's `DbContext` API. Hibernate is the library that implements it.
+- **Spring.** It plays the role of ASP.NET Core and its dependency injection.
+- **Maven.** It is MSBuild and NuGet in one tool.
 
 ## How a request flows
 

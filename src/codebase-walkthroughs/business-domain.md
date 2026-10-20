@@ -3,7 +3,7 @@
 <div class="wt-intro">
 <p class="wt-kicker">Interactive diagram · Domain model</p>
 
-VWO runs two contests with very different shapes: the Olympiad (VWO/JWO) is an elimination format with a First Round, Second Round, and live Final, while Kangoeroe is a single yearly test split into seven age and grade band editions, organized per school into pools and teams. Schools sit at the center of the model: they register, assign a contact, enroll pupils, get invoiced, and receive prizes and certificates once scoring wraps up. This diagram reconstructs that structure from the codebase's own enums and Swagger summaries, since no written domain documentation exists.
+VWO runs two contests with very different shapes. The Olympiad (VWO/JWO) is an elimination format with a First Round, a Second Round, and a live Final. Kangoeroe is a single yearly test, split into seven editions by age and grade band, and organized per school into pools and teams. Schools sit at the center of the model. A school registers, assigns a contact, enrolls pupils, and gets invoiced. When scoring is complete, the school receives prizes and certificates. No written domain documentation exists, so this diagram reconstructs the structure from the codebase's own enums and Swagger summaries.
 
 <ul class="wt-tips"><li>Click a node to open its detail panel</li><li>Drag to pan, scroll to zoom</li></ul>
 </div>

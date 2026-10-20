@@ -20,11 +20,15 @@ an earlier year.
 No entity maps a history table, in the VWO or here. They are read and
 written with
 <dfn data-def="SQL sent to the database as written, through Session.createNativeQuery, instead of HQL that Hibernate translates. It names tables and columns, not entities and fields.">native SQL</dfn>,
-next to the HQL of the current-year queries. This chapter adds the two
-historic counts, lets the count endpoints pick the right query by year
-the way the VWO does, and builds an archive operation that copies a
-year's pupils into the history table and empties the current tables in
-one transaction.
+next to the HQL of the current-year queries. This chapter does three
+things:
+
+1. It adds the two historic counts.
+2. It lets the count endpoints pick the right query by year, the way the
+   VWO does.
+3. It builds an archive operation. In one transaction, this operation
+   copies a year's pupils into the history table and empties the current
+   tables.
 
 **After this chapter you can:**
 
@@ -99,20 +103,20 @@ HQL." We follow the same rule: the history table is not mapped, so it is
 only reachable natively.
 
 Mapping it would be possible (a `HistoriekLeerlingEersteRonde extends ToParticipant`
-with a two-column key), but the archive would gain nothing: it is a bulk
-copy, not a set of objects to load and change, and loading thousands of
-entities to write them out again is slower and uses more memory than one
-`INSERT ... SELECT`.
+with a two-column key), but the archive would gain nothing. The archive
+is a bulk copy, not a set of objects to load and change. Loading
+thousands of entities to write them out again is slower and uses more
+memory than one `INSERT ... SELECT`.
 
 ### Reading native results
 
 `createNativeQuery(sql)` without a result class returns rows as the
 driver delivers them. A single column is a single object, several
-columns are an `Object[]`. Which Java type each value has follows the
-column's JDBC type and the Hibernate dialect, not your entity mappings:
-Hibernate 5 returns a native `COUNT(*)`, a `BIGINT`, as a `BigInteger`,
-while the HQL `COUNT` of chapter 14 is a `Long`; a `SMALLINT` comes back
-as a `Short`. The VWO reads
+columns are an `Object[]`. The Java type of each value depends on the
+column's JDBC type and the Hibernate dialect, not on your entity
+mappings. For example, Hibernate 5 returns a native `COUNT(*)`, a
+`BIGINT`, as a `BigInteger`. The HQL `COUNT` of chapter 14 is a `Long`.
+A `SMALLINT` comes back as a `Short`. The VWO reads
 everything through `Number` (`((Number) row[0]).shortValue()`), which
 works for all of them. Our `toCountMap` from chapter 14 was written that
 way so it can serve both kinds of query.
@@ -126,7 +130,7 @@ serialized object, and the comparison silently matches nothing.
 ### Choosing the query by year
 
 The count endpoints take an optional `year`. For the current school year
-the pupils are in `Leerling_eerste_ronde`; for any other year they are in
+the pupils are in `Leerling_eerste_ronde`. For any other year they are in
 the history table. The VWO makes that choice inside the DAO method:
 
 ```java
@@ -140,8 +144,8 @@ public long countParticipants(Configuration.VwoRole edition, short year) {
 
 TechOlympiad keeps each DAO method to one query (`count`, `countHistoric`)
 and makes the choice one layer up, in `LeerlingToRepositoryImpl`. The
-rule is the same; the DAO stays a list of queries and the repository
-decides which one a request needs, which is the split chapter 16 used for
+rule is the same. The DAO stays a list of queries, and the repository
+decides which query a request needs. Chapter 16 used the same split for
 scoring.
 
 <div class="callout danger">
@@ -153,8 +157,8 @@ with a `Short`, so Java unboxes the `Short` and compares numbers. If
 references*. Java caches boxed values only from -128 to 127, so two
 `Short`s holding `2027` are usually different objects, and
 `year == General.getCurrentSchoolYear()` would be `false` for the
-current year. The repository parameter is a primitive `short` for this
-reason; with two wrappers, use `equals`.
+current year. For this reason the repository parameter is a primitive
+`short`. To compare two wrappers, use `equals`.
 
 </div>
 
@@ -186,9 +190,9 @@ flowchart TD
 Without the transaction, a failure after the copy would leave the pupils
 in both places, and a failure in the copy followed by the deletes would
 lose them. With `@Transactional(value = transactionRW)` on the DAO method,
-all four run on one `to_write` connection inside one MariaDB transaction,
-and `executeUpdate` requires that: outside a transaction it throws
-`TransactionRequiredException: Executing an update/delete query`.
+all four run on one `to_write` connection inside one MariaDB transaction.
+`executeUpdate` also needs that transaction: outside a transaction it
+throws `TransactionRequiredException: Executing an update/delete query`.
 
 The deletes go child first (final, round 2, round 1). Our schema has no
 foreign keys between those tables, but the VWO's production schema may,
@@ -196,18 +200,22 @@ and the order costs nothing.
 
 Only round 1 is copied, because TechOlympiad has only a round 1 history
 table. Round 2 and final results are deleted with the year. The VWO keeps
-them in `Historiek_leerling_tweede_ronde` and `Historiek_leerling_finale`;
-adding those is the same `INSERT ... SELECT` twice more.
+them in `Historiek_leerling_tweede_ronde` and `Historiek_leerling_finale`.
+To add those, write the same `INSERT ... SELECT` twice more.
 
 <div class="callout danger">
 <div class="callout-label">Why not <code>TRUNCATE</code></div>
 
 `TRUNCATE TABLE` is faster and resets `AUTO_INCREMENT`, which looks
-tempting for "empty the table". In MariaDB it is a DDL statement: it
-commits the open transaction implicitly, so the copy before it would be
-committed even if a later step failed, and it needs the `DROP` privilege,
-which `to_write` does not have (`DROP command denied to user 'to_write'`).
-`DELETE` is transactional and needs only `DELETE`. Keeping the
+tempting for "empty the table". But in MariaDB it is a DDL statement,
+and that causes two problems:
+
+- It commits the open transaction implicitly. The copy before it would
+  stay committed even if a later step failed.
+- It needs the `DROP` privilege, which `to_write` does not have
+  (`DROP command denied to user 'to_write'`).
+
+`DELETE` is transactional and needs only the `DELETE` privilege. Keeping the
 `AUTO_INCREMENT` counter is in fact what we want: next year's
 `PERSOON_ID`s stay different from this year's.
 
@@ -217,10 +225,11 @@ which `to_write` does not have (`DROP command denied to user 'to_write'`).
 
 Hibernate cannot parse native SQL, so it does not know which tables an
 `INSERT` or `DELETE` touches. Before running one it flushes the session,
-and afterwards it assumes the worst: every second-level cache region is
-invalidated. (The second-level cache, set up in chapter 21, keeps entities
-across sessions; a region is its part for one entity.) That does not matter yet, but chapter 21 caches `Scholen`,
-and an archive would throw those cached schools away for no reason.
+and afterwards it assumes the worst: it invalidates every second-level
+cache region. The second-level cache, set up in chapter 21, keeps
+entities across sessions. A region is the part of that cache for one
+entity. This does not matter yet. But chapter 21 caches `Scholen`, and
+an archive would throw those cached schools away for no reason.
 `NativeQuery` lets you name what a statement affects:
 
 - `addSynchronizedEntityClass(LeerlingEersteRonde.class)` for a statement
@@ -337,7 +346,7 @@ Paths are relative to `src/main/java/be/techolympiad/common/`.
 
 1. No result class, so the result is an `Object`, here a `BigInteger`. Reading it as a `Number` works whatever the concrete type is.
 2. A native parameter is a plain JDBC value. `ROL` holds `'JTO'`, so pass the name.
-3. Two columns, so each row is an `Object[]`; `getResultList()` on an untyped native query returns a raw `List`, hence the `@SuppressWarnings`. `toCountMap` reads both values through `Number`.
+3. Two columns, so each row is an `Object[]`. `getResultList()` on an untyped native query returns a raw `List`, hence the `@SuppressWarnings`. `toCountMap` reads both values through `Number`.
 4. One read-write transaction for the four statements, which is what makes the archive all or nothing.
 5. Declares what the statement touches, so Hibernate does not invalidate every cache region (chapter 21 makes this matter).
 6. `executeUpdate` returns the number of rows affected; for the `INSERT ... SELECT`, the number of pupils archived.
@@ -558,8 +567,8 @@ mvn -q -DskipTests -Plocal package && docker compose restart api
    { "year": 2027, "archived": 10 }
    ```
 
-   Ten if you kept Milan from chapter 14 next to the nine seeded pupils;
-   your number is the size of `Leerling_eerste_ronde` before the call.
+   Ten if you kept Milan from chapter 14 next to the nine seeded pupils.
+   Your number is the size of `Leerling_eerste_ronde` before the call.
 4. `GET /api/v1/to/participants/count` now gives `0` for both editions:
    the current tables are empty. A count with `year=2027` also gives `0`,
    because 2027 is still the current school year and is read from the

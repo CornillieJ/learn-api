@@ -9,11 +9,14 @@
 <div class="level overview">
 
 A Spring Boot application starts from one class. In the VWO API it is
-`be.vwo.common.restAPI.OpenApiApplication`, and its annotations decide
-three things for the whole API: which packages Spring searches for
-components (the classes it should create and wire for you), which of
-Spring Boot's automatic setups are switched off, and which properties
-files are loaded. It also extends `SpringBootServletInitializer`, the hook
+`be.vwo.common.restAPI.OpenApiApplication`. Its annotations decide three
+things for the whole API:
+
+- which packages Spring searches for components (the classes it should create and wire for you)
+- which of Spring Boot's automatic setups are switched off
+- which properties files are loaded
+
+The class also extends `SpringBootServletInitializer`, the hook
 that lets Tomcat start the application from a WAR.
 
 This chapter writes TechOlympiad's `OpenApiApplication` with those
@@ -110,7 +113,7 @@ both.
 creates the context, sees Tomcat's classes on the classpath, starts an
 *embedded* Tomcat inside the same JVM and registers the
 `DispatcherServlet` in it. A servlet is a class that handles HTTP requests
-under the Servlet API; the `DispatcherServlet` is Spring MVC's single
+under the Servlet API. The `DispatcherServlet` is Spring MVC's single
 servlet that receives every request and routes it to the right controller
 method. This is how `dotnet run` works with Kestrel, and
 how most Spring Boot tutorials run.
@@ -147,17 +150,18 @@ Step by step:
    Our class extends it, so it is found, instantiated and its
    `onStartup(ServletContext)` is called.
 4. `onStartup` creates a `SpringApplicationBuilder`, lets `configure` add
-   the sources (our class), and runs the application. Because a
+   the sources (our class), and runs the application. A
    `ServletContext` (the object that stands for one deployed web
-   application inside Tomcat) already exists, Spring Boot starts no embedded server;
-   it registers the `DispatcherServlet` and its filters in Tomcat's
-   context instead.
+   application inside Tomcat) already exists, so Spring Boot starts no
+   embedded server. It registers the `DispatcherServlet` and its filters
+   in Tomcat's context instead.
 5. It also registers a listener that closes the Spring context when
    Tomcat stops or undeploys the application.
 
 The ASP.NET Core counterpart is hosting in IIS in-process: IIS owns the
-process and the ASP.NET Core module loads your application into it. Your
-`Program.cs` still runs there; in a WAR, `main` does not.
+process and the ASP.NET Core module loads your application into it. One
+difference: under IIS your `Program.cs` still runs, but in a WAR `main`
+does not.
 
 <div class="callout note">
 <div class="callout-label">Is <code>configure</code> needed?</div>
@@ -194,8 +198,8 @@ The annotation is a shortcut for three others:
 | Part | What it does |
 |---|---|
 | `@SpringBootConfiguration` | Marks the class as a `@Configuration`: its `@Bean` methods become beans |
-| `@EnableAutoConfiguration` | Imports Spring Boot's auto-configuration classes; `exclude` removes some |
-| `@ComponentScan` | Scans packages for `@Component` classes; `scanBasePackages` sets which |
+| `@EnableAutoConfiguration` | Imports Spring Boot's auto-configuration classes. `exclude` removes some |
+| `@ComponentScan` | Scans packages for `@Component` classes. `scanBasePackages` sets which |
 
 </div>
 
@@ -209,14 +213,14 @@ reads the class files under a package and registers every class annotated
 class, here `be.techolympiad.common.restAPI`. The VWO's DAOs live in
 `be.vwo.common.dao.impl` and its security classes in
 `be.vwo.common.security`: siblings of `restAPI`, outside its subtree. A default
-scan would not find them, and every controller that needs a repository
-that needs a DAO would fail to start with
+scan would not find them. A controller needs a repository, and a
+repository needs a DAO, so every controller would fail to start with
 `No qualifying bean of type '...' available`.
 
 `scanBasePackages = "be.vwo.common"` moves the root up one level, so the
 whole API is scanned. We copy that with `be.techolympiad.common`. The
 usual Spring Boot advice is to put the application class in the root
-package instead; the VWO keeps it in `restAPI` with the other web classes
+package instead. The VWO keeps it in `restAPI` with the other web classes
 and widens the scan, and so do we.
 
 ### Auto-configuration
@@ -226,10 +230,10 @@ beans. It also walks through a list of 144
 <dfn data-def="Spring Boot configuration classes that register beans only when their conditions hold, for example when a class is on the classpath or no bean of that type exists yet.">auto-configuration</dfn>
 classes that ship with Spring Boot. Each one is a recipe of the form
 "if this situation applies, register these beans for the developer". The
-list lives in a text file inside a Spring Boot jar,
-`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
-in `spring-boot-autoconfigure-2.7.18.jar`, and the `@EnableAutoConfiguration`
-part of `@SpringBootApplication` is what tells Spring to read it.
+list lives in a text file,
+`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`,
+inside `spring-boot-autoconfigure-2.7.18.jar`. The `@EnableAutoConfiguration`
+part of `@SpringBootApplication` tells Spring to read it.
 
 Each recipe checks its conditions first:
 
@@ -301,9 +305,9 @@ itself, as an argument of `@SpringBootApplication`:
 Spring Boot's JPA recipe, `HibernateJpaAutoConfiguration`, would build
 Hibernate's JPA entry point (an `EntityManagerFactory`, JPA's name for a
 session factory) on top of that `DataSource`. It needs the bean, so it
-stays quiet too, and the database setup is left entirely to the XML. The
+stays quiet too. The database setup is left entirely to the XML. The
 `spring.autoconfigure.exclude` property does the same from a properties
-file; the VWO uses the annotation.
+file, but the VWO uses the annotation.
 
 In this chapter the exclusion changes nothing yet: `spring-jdbc` is not
 on the classpath, so the recipe's condition would fail on its
@@ -318,8 +322,8 @@ an ordered list of property sources searched from the top, much like
 `IConfiguration` with its providers. Spring Boot fills it with command
 line arguments, environment variables and `application.properties`.
 `@PropertySource("classpath:api.properties")` adds one more source.
-`classpath:` means "look on the classpath", which in a WAR is
-`WEB-INF/classes` plus the jars; `src/main/resources/api.properties`
+`classpath:` means "look on the classpath". In a WAR, the classpath is
+`WEB-INF/classes` plus the jars. `src/main/resources/api.properties`
 ends up at `WEB-INF/classes/api.properties`.
 
 A missing file is a startup error:
@@ -406,7 +410,7 @@ public class OpenApiApplication extends SpringBootServletInitializer { // (4)
 }
 ```
 
-1. Turns on configuration, auto-configuration and component scanning, minus the automatic `DataSource`; the session factories come from Spring XML in chapter 8.
+1. Turns on configuration, auto-configuration and component scanning, minus the automatic `DataSource`. The session factories come from Spring XML in chapter 8.
 2. Scan the whole `be.techolympiad.common` tree, so the `dao` and `security` packages are found later.
 3. Adds `api.properties` to the Environment. A missing file stops the startup.
 4. Makes the class a `WebApplicationInitializer`, which is how Tomcat finds and starts it.
@@ -507,13 +511,13 @@ Caused by: java.lang.NoClassDefFoundError: javax/servlet/ServletContext
 
 `SpringBootServletInitializer.onStartup` takes a `ServletContext`, and the
 servlet API is only in the Tomcat jars we marked `provided`. Inside Tomcat
-that class is always there; outside it, the class cannot even be loaded.
+that class is always there. Outside Tomcat, the class cannot even be loaded.
 Rerun the first `build-classpath` command to restore the full classpath.
 
 <div class="callout danger">
 <div class="callout-label">When it breaks</div>
 
-- **`Web server failed to start. Port 8080 was already in use.`**: you left out `--server.port=8081`, and the VWO's local API holds 8080. Never stop that one to make room; pass the port.
+- **`Web server failed to start. Port 8080 was already in use.`**: you left out `--server.port=8081`, and the VWO's local API holds 8080. Never stop that one to make room. Pass the port instead.
 - **`class path resource [api.properties] cannot be opened because it does not exist`**: the file is not in `src/main/resources`, or it is named differently. Check `ls target/classes`.
 - **`package org.springframework.boot.web.servlet.support does not exist`**: a typo in an import, or the build ran outside the project folder. `SpringBootServletInitializer` is in `spring-boot-2.7.18.jar`, which `spring-boot-starter-web` brings.
 - **`Could not find or load main class be.techolympiad.common.restAPI.OpenApiApplication`**: the file's folder does not match its `package` line, so `javac` put the class elsewhere, or `target/classes` is missing from `-cp`.
@@ -538,7 +542,7 @@ Rerun the first `build-classpath` command to restore the full classpath.
 <ol class="quiz-options">
 <li>Nothing changes: component scanning covers the whole classpath<p class="quiz-whynot">Scanning covers only the base packages, here <code>be.techolympiad.common</code> and below.</p></li>
 <li data-correct>The DAO is not registered as a bean, and whatever needs it fails with <code>No qualifying bean of type</code><p class="quiz-why">The class is outside <code>scanBasePackages</code>, so Spring never sees its <code>@Repository</code>.</p></li>
-<li>The build fails<p class="quiz-whynot">The compiler does not know about Spring's scanning. The class compiles fine; the failure comes when the context starts.</p></li>
+<li>The build fails<p class="quiz-whynot">The compiler does not know about Spring's scanning. The class compiles fine. The failure comes when the context starts.</p></li>
 </ol>
 </div>
 
@@ -547,7 +551,7 @@ Rerun the first `build-classpath` command to restore the full classpath.
 <ol class="quiz-options">
 <li>To make the application start faster<p class="quiz-whynot">The time saved is negligible. Without the exclusion the application would not start at all.</p></li>
 <li data-correct>Its database connections come from two Hibernate session factories defined in Spring XML, so a Boot-made <code>DataSource</code> would be unwanted and, without <code>spring.datasource.url</code>, fail<p class="quiz-why">With JPA on the classpath, Spring Boot would try to build a pool and stop with "Failed to configure a DataSource".</p></li>
-<li>Because MariaDB is not supported by Spring Boot<p class="quiz-whynot">Spring Boot supports MariaDB fine; the VWO simply sets up Hibernate itself.</p></li>
+<li>Because MariaDB is not supported by Spring Boot<p class="quiz-whynot">Spring Boot supports MariaDB fine. The VWO simply sets up Hibernate itself.</p></li>
 </ol>
 </div>
 
@@ -557,7 +561,7 @@ Rerun the first `build-classpath` command to restore the full classpath.
 <div class="card"><div class="front">Bean</div><div class="back">An object created and wired by the Spring container. A singleton by default.</div></div>
 <div class="card"><div class="front"><code>@SpringBootApplication</code></div><div class="back"><code>@SpringBootConfiguration</code> + <code>@EnableAutoConfiguration</code> + <code>@ComponentScan</code>.</div></div>
 <div class="card"><div class="front"><code>scanBasePackages</code></div><div class="back">The root package(s) for component scanning. Default: the package of the annotated class.</div></div>
-<div class="card"><div class="front"><code>SpringBootServletInitializer</code></div><div class="back">A <code>WebApplicationInitializer</code>; lets Tomcat start the Spring Boot application from a WAR via <code>onStartup</code> and <code>configure</code>.</div></div>
+<div class="card"><div class="front"><code>SpringBootServletInitializer</code></div><div class="back">A <code>WebApplicationInitializer</code>. It lets Tomcat start the Spring Boot application from a WAR via <code>onStartup</code> and <code>configure</code>.</div></div>
 <div class="card"><div class="front"><code>ServletContainerInitializer</code></div><div class="back">Servlet 3.0 hook, found via <code>META-INF/services</code> in a jar. <code>spring-web</code> provides one that calls every <code>WebApplicationInitializer</code>.</div></div>
 <div class="card"><div class="front">Auto-configuration</div><div class="back">Spring Boot's conditional <code>@Configuration</code> classes. <code>--debug</code> prints which matched and why.</div></div>
 <div class="card"><div class="front"><code>@PropertySource</code></div><div class="back">Adds a properties file to the Environment. A missing file stops startup.</div></div>

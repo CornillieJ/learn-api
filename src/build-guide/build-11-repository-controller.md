@@ -67,7 +67,7 @@ public class ScholenController implements SchoolController {
 Neither class contains an endpoint. The VWO's v2 controller is the
 model we follow: everything lives in the shared interface. The VWO's
 own v1 `ScholenController` repeats four of the interface's methods with
-the same annotations, which changes nothing; ours stays empty.
+the same annotations, which changes nothing. Ours stays empty.
 
 </div>
 
@@ -126,8 +126,8 @@ interface of Spring Data. It declares no methods. In a typical Spring
 Data JPA project, you write an interface that extends it and Spring
 *generates* the implementation at startup: `findAll()`, `findById(id)`
 and `save(entity)` come for free, and `findByGemeente(String)` becomes a
-query because of its name. EF Core has no direct counterpart; it is as
-if a `DbSet` could grow methods from their names.
+query because of its name. EF Core has no direct counterpart. Picture
+a `DbSet` that could grow methods from their names.
 
 The VWO uses the marker and the vocabulary (`findAll`, `findById`,
 `save`, `saveAll`, `existsById` are Spring Data's method names), but none
@@ -140,7 +140,7 @@ here:
 2. `@NoRepositoryBean` says "never generate an implementation for this
    interface", in case scanning is ever switched on. Spring Data made the
    annotation for intermediate interfaces that only exist to be
-   extended; the VWO puts it on every repository interface as a guard.
+   extended. The VWO puts it on every repository interface as a guard.
 
 The implementation is written by hand and annotated `@Repository`, so
 component scanning registers it like any other bean. Hand-written
@@ -173,7 +173,7 @@ This is ordinary constructor injection, the style .NET uses everywhere.
 Spring finds the constructor, resolves a `ScholenDao` (there is exactly
 one bean of that type: the proxy of `ScholenDaoImpl`), and passes it in.
 Since Spring 4.3 a class with a single constructor does not need
-`@Autowired` on it; the VWO writes it anyway, and so do we. The field is
+`@Autowired` on it. The VWO writes it anyway, and so do we. The field is
 `final`, so the dependency can never be missing or replaced, and the
 class can be constructed in a test with a plain `new`.
 
@@ -199,9 +199,9 @@ is the simple class name with a lowercase first letter:
 
 </div>
 
-The package is not part of the name. Two scanned classes with the same
-simple name in different packages, say `v1.FunctionController` and
-`v2.FunctionController`, both want the name `functionController`, and
+The package is not part of the name. Take two scanned classes with the
+same simple name in different packages, say `v1.FunctionController` and
+`v2.FunctionController`. Both want the name `functionController`, so
 the application refuses to start with
 `ConflictingBeanDefinitionException: Annotation-specified bean name
 'functionController' for bean class [...v2.FunctionController] conflicts
@@ -252,9 +252,9 @@ public interface SchoolController {
 The payoff comes in [chapter 19](roadmap.md): a `v2` controller
 implements the same interface under `/api/v2`, and every endpoint exists
 in both versions without a line of duplication. C# 8 also has default
-interface methods, with a difference: in C#, a default member is only
-callable through the interface type, while in Java it becomes a regular
-member of the implementing class, which is what lets Spring MVC treat it
+interface methods, with one difference. In C#, a default member is only
+callable through the interface type. In Java, it becomes a regular
+member of the implementing class. That is what lets Spring MVC treat it
 as a handler method of the controller.
 
 On the class side, Lombok writes the getter the interface asks for:
@@ -299,7 +299,7 @@ and test for `null`, Java chains on the box:
 expression: 200 with the school, or 404 without a body.
 
 `POST` answers 200 with the saved list, as in the VWO. A strict REST
-API would answer 201 Created; chapter 18 revisits status codes.
+API would answer 201 Created. Chapter 18 revisits status codes.
 
 ### What POST and PUT do in the database
 
@@ -428,12 +428,15 @@ public class ScholenRepositoryImpl implements ScholenRepository {
 }
 ```
 
-Two annotations named `Repository` meet in this package: Spring Data's
-interface `org.springframework.data.repository.Repository` and Spring's
-stereotype `org.springframework.stereotype.Repository` (Spring calls the
-role annotations `@Component`, `@Repository`, `@Service` and `@Controller`
-stereotypes). Check the
-imports: the interface file needs the first, the class the second.
+Two types named `Repository` meet in this package:
+
+- Spring Data's interface `org.springframework.data.repository.Repository`.
+- Spring's stereotype annotation `org.springframework.stereotype.Repository`.
+  Spring calls the role annotations `@Component`, `@Repository`,
+  `@Service` and `@Controller` stereotypes.
+
+Check the imports: the interface file needs the first, the class the
+second.
 
 ### The controller interface
 
@@ -544,7 +547,7 @@ mvn -q -DskipTests -Plocal package && docker compose restart api
 
 Open `http://localhost:8081/techolympiad/public/swagger-ui.html`, pick
 the `v1` definition and the "local" server. The `hello-controller` is
-gone; `schools-controller` lists `GET /api/v1/school`,
+gone. `schools-controller` lists `GET /api/v1/school`,
 `POST /api/v1/school`, `PUT /api/v1/school` and
 `GET /api/v1/school/{schoolId}`. Under *Schemas*, `School` shows the six
 English property names. *Try it out* on the first one returns the seed
@@ -619,7 +622,7 @@ school with id 6. The answer is a 500, and the log shows:
 java.sql.SQLSyntaxErrorException: (conn=...) INSERT command denied to user 'to_read'@'172.18.0.3' for table `TechOlympiad`.`Scholen`
 ```
 
-The Java code did not change; only the account behind `toRW` did. Put
+The Java code did not change. Only the account behind `toRW` did. Put
 the two keys back, rebuild and restart, and reset the data with
 `docker compose down -v && docker compose up -d` so later chapters start
 from the seed.

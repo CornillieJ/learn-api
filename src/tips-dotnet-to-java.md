@@ -25,15 +25,16 @@ concrete action in `vwo-api`. For the full equivalents table see the
    parent-POM step (Step 2), not for syntax.
 
 4. **Map, don't translate.** Keep a personal table from familiar
-   operations to Java equivalents; the DEV author credits this for
-   learning fast.
+   operations to Java equivalents. The DEV author says this habit made
+   them learn fast.
    **Do this:** extend the rosetta table in Knowledge File §18 every time
    you look something up, and drill the [Flashcards](flashcards.md).
 
 5. **Unlearn four C# reflexes.** `==` on objects, ignoring exceptions
    (Java has checked ones), `typeof(T)` (erased), and "methods aren't
-   virtual unless I say so". (`Optional`/lambdas replacing `?.`/`??` and
-   delegates is from the Integral summary via search; approximate.)
+   virtual unless I say so". (The claim that `Optional` and lambdas
+   replace `?.`/`??` and delegates comes from a search summary of the
+   Integral article. Treat it as approximate.)
    **Do this:** grep the repo for `==` between boxed ids or strings;
    look for `.map(...).orElse(...)` chains.
 

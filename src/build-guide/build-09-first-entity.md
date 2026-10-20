@@ -120,12 +120,13 @@ mapping written as annotations on the class instead of in
 The annotations come from
 <dfn data-def="Jakarta (formerly Java) Persistence API: the standard ORM interfaces and annotations. Hibernate is one implementation. In the javax era its package is javax.persistence.">JPA</dfn>,
 the standard ORM API, and Hibernate is the implementation that reads
-them. On Spring Boot 2.7 and Hibernate 5 they live in
-`javax.persistence`; on Boot 3 the same annotations moved to
-`jakarta.persistence`. The jar that provides them, pulled in by
-`spring-boot-starter-data-jpa`, is called `jakarta.persistence-api`
-version 2.2.3, which still contains the old `javax.persistence` package.
-The name of the jar changed before the package did.
+them. On Spring Boot 2.7 and Hibernate 5 they live in the package
+`javax.persistence`. On Boot 3 the same annotations moved to the package
+`jakarta.persistence`. Do not let the jar name confuse you.
+`spring-boot-starter-data-jpa` pulls in a jar called
+`jakarta.persistence-api` version 2.2.3, and that jar still contains the
+old `javax.persistence` package. The name of the jar changed before the
+package did.
 
 ### The mapping annotations
 
@@ -152,12 +153,12 @@ public class Scholen implements Serializable {
 </div>
 
 The VWO adds `@Basic(optional = false)` and `@NotNull` to the id.
-`@Basic(optional = false)` repeats what `@Id` already implies, and
-`@NotNull` and `@Size(max = 128)` are Bean Validation constraints, a
-separate library that checks values at runtime.
-[Chapter 13](build-13-registration.md) introduces validation; until then
-these annotations would only suggest a check that is not wired up, so
-TechOlympiad leaves them out.
+`@Basic(optional = false)` repeats what `@Id` already implies.
+`@NotNull` and `@Size(max = 128)` are Bean Validation constraints. Bean
+Validation is a separate library that checks values at runtime.
+[Chapter 13](build-13-registration.md) introduces validation. Until
+then, these annotations would only suggest a check that is not wired up,
+so TechOlympiad leaves them out.
 
 Hibernate does not check the class against the table at startup (that
 would take `hibernate.hbm2ddl.auto=validate`, which neither the VWO nor
@@ -225,12 +226,17 @@ to drop Lombok.
 <div class="callout-label">Gotcha</div>
 
 Lombok's `@Data` and `@EqualsAndHashCode` generate `equals` and
-`hashCode` over *all* fields. On an entity that is a trap: the hash
-changes when any column changes, so an entity put in a `HashSet` is lost
-in it after an update, and with lazy relations (related entities that
-Hibernate loads only when first touched, like lazy loading in EF Core)
-`hashCode` can load half the database. The VWO writes `equals` and `hashCode` by hand on its
-entities, based on the id alone, and so do we. Lombok's
+`hashCode` over *all* fields. On an entity that is a trap, for two
+reasons:
+
+- The hash changes when any column changes. An entity put in a
+  `HashSet` is lost in it after an update.
+- With lazy relations (related entities that Hibernate loads only when
+  first touched, like lazy loading in EF Core), `hashCode` can load half
+  the database.
+
+The VWO writes `equals` and `hashCode` by hand on its entities, based on
+the id alone, and so do we. Lombok's
 `@EqualsAndHashCode` is fine on the small key classes of
 [chapter 12](build-12-responsables.md), whose fields are the identity.
 
@@ -252,7 +258,7 @@ codebases the same.
 Java has eight
 <dfn data-def="Java's built-in value types: byte, short, int, long, float, double, char, boolean. They cannot be null.">primitive types</dfn>,
 and each has a wrapper class: `short` and `Short`, `byte` and `Byte`.
-The wrapper is an object reference, so it can be `null`; the primitive
+The wrapper is an object reference, so it can be `null`. The primitive
 cannot. The compiler converts between them automatically (autoboxing),
 which hides a few sharp edges.
 
@@ -278,14 +284,15 @@ The rule the VWO follows, and we copy:
 
 `POSTCODE smallint` fits a `Short` because Belgian postal codes run from
 1000 to 9999. `PROVINCIE tinyint` is a `Byte`. In the VWO, `PROVINCIE`
-is a `set('1',...,'7')` mapped to a `String`; ours is a plain number.
+is a `set('1',...,'7')` mapped to a `String`. Ours is a plain number.
 
 <div class="callout danger">
 <div class="callout-label">Gotcha</div>
 
 Never compare wrappers with `==`. `Short.valueOf((short) 100) == Short.valueOf((short) 100)`
-is `true` because Java caches the values from -128 to 127, while the same
-comparison with 1000 is `false`: two different objects. Use `equals`, or
+is `true` because Java caches the values from -128 to 127. The same
+comparison with 1000 is `false`, because the two calls return two
+different objects. Use `equals`, or
 `Objects.equals(a, b)` when either may be `null`, as `Scholen.equals`
 does.
 
@@ -293,7 +300,7 @@ does.
 
 ### Serializable
 
-`Scholen implements Serializable` has no methods to implement; it marks
+`Scholen implements Serializable` has no methods to implement. It marks
 the class as convertible to bytes by Java serialization. Three things
 in this stack care about that marker:
 
@@ -334,7 +341,7 @@ It is the counterpart of `[JsonPropertyName("institution")]` and
 The VWO entity also carries `@JsonTypeName(value = "School")`. That
 annotation only matters for polymorphic JSON configured with
 `@JsonTypeInfo`, which the VWO never uses, so it changes nothing.
-`@XmlRootElement` is for JAXB, the XML binding; the API only produces
+`@XmlRootElement` is for JAXB, the XML binding, and the API only produces
 JSON. TechOlympiad leaves both out.
 
 ### The Swagger name
@@ -519,7 +526,7 @@ docker compose logs -f api | grep -E "HHH000400|Deployment of|ERROR"
 
 The dialect line appears twice and the deployment finishes, as in
 chapter 8. Hibernate now holds the metadata of one entity in each
-factory; nothing has queried it yet. That is chapter 10.
+factory. Nothing has queried it yet. Queries come in chapter 10.
 
 Now comment out `@Id`, rebuild and restart. The deployment fails, and
 the log contains:

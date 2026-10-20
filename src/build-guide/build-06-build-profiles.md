@@ -13,10 +13,15 @@ database URL, database users, log levels and description. Those values
 live in two files, `environmentAPI.dev.properties` and
 `environmentAPI.prod.properties`. The application reads neither of them.
 It reads `environment.properties`, a file that does not exist in the
-sources: during the build, a Maven *profile* (a named block of build
-settings in `pom.xml`, switched on with `-P`) runs an
-<dfn data-def="Apache Ant: the XML-based Java build tool that came before Maven. A build file holds targets made of tasks such as copy and delete, like MSBuild targets and tasks.">Ant</dfn>
-target that copies one of the two environment files to `target/classes/environment.properties`.
+sources. The build creates it:
+
+1. A Maven *profile* (a named block of build settings in `pom.xml`,
+   switched on with `-P`) runs an
+   <dfn data-def="Apache Ant: the XML-based Java build tool that came before Maven. A build file holds targets made of tasks such as copy and delete, like MSBuild targets and tasks.">Ant</dfn>
+   target.
+2. That target copies one of the two environment files to
+   `target/classes/environment.properties`.
+
 Which environment a WAR is for is therefore decided when it is built.
 
 This chapter builds the same mechanism for TechOlympiad, with two
@@ -122,9 +127,9 @@ uses neither. It picks the environment when the WAR is *built*:
 </div>
 
 The last row is why it suits the VWO: the server only needs Tomcat, and
-the pipeline only copies a file into an image. The price is that a WAR is
-only as right as the command that built it, which makes knowing the
-profiles part of knowing the build.
+the pipeline only copies a file into an image. The price: a WAR is only
+as right as the command that built it. So knowing the profiles is part of
+knowing the build.
 
 ### Maven profiles
 
@@ -142,7 +147,7 @@ active, Maven merges it into the effective POM.
 <div class="callout-label">Two kinds of profile</div>
 
 A Maven profile and a Spring profile share a name and nothing else. A
-Maven profile changes what the build does; it is gone once the WAR
+Maven profile changes what the build does, and it is gone once the WAR
 exists. A Spring profile changes which beans and property files the
 running application uses. Nothing in the VWO uses Spring profiles, which
 is why Spring Boot logs `No active profile set, falling back to 1 default profile: "default"`
@@ -182,8 +187,9 @@ list of *tasks* (`copy`, `delete`, `exec`, ...). If you know MSBuild, an
 Ant target is an MSBuild `<Target>` and a task is a task. Maven has no
 "copy this file" step of its own, so `maven-antrun-plugin` runs Ant tasks
 in the middle of a Maven build. Its `run` goal executes the `<target>` in
-its configuration; the VWO's one-liner there calls a target in a separate
-file, `ant.xml`, with `<ant antfile="ant.xml" target="..."/>`.
+its configuration. In the VWO, that `<target>` holds one line,
+`<ant antfile="ant.xml" target="..."/>`, which calls a target in a
+separate file, `ant.xml`.
 
 Two kinds of placeholders appear in `ant.xml`:
 
@@ -212,9 +218,9 @@ copies:
 ```
 
 Ant's `<copy>` skips a file when the target is newer than the source. A
-copied file gets the time of the copy, so after a `production` build,
-`environment.properties` is newer than `environmentAPI.local.properties`,
-and a following `local` build without `clean` would silently keep the
+copied file gets the time of the copy. So after a `production` build,
+`environment.properties` is newer than `environmentAPI.local.properties`.
+A `local` build that follows without `clean` would then silently keep the
 production file. Deleting first makes every build copy. We copy both
 macros.
 
@@ -231,7 +237,7 @@ flowchart TD
 Note what `process-resources` does: it copies *everything* in
 `src/main/resources`, so both environment files end up in
 `WEB-INF/classes` next to `environment.properties`. The application only
-reads `environment.properties`; the others ride along. In the VWO's case
+reads `environment.properties`. The others ride along. In the VWO's case
 that means every WAR, also one built for development, contains the
 production file with its credentials.
 
@@ -242,14 +248,14 @@ the second phase. Its `read-project-properties` goal reads
 `src/main/resources/api.properties` and adds each key as a Maven property,
 so `${apiPomVersion}` could be used anywhere in the POM, as the version of
 a dependency or in an Ant target. In the VWO's `pom.xml` and `ant.xml`
-nothing uses it; the pipeline reads the version by running `grep` on the
+nothing uses it. The pipeline reads the version by running `grep` on the
 file instead. We add the plugin so the build matches, and the drill shows
 the property is there. Chapter 22 comes back to how the version number
 travels.
 
 ### Which property file wins
 
-After this chapter the application has four sources of configuration,
+After this chapter the application has five sources of configuration,
 searched in this order for each key:
 
 <div class="table-wrap">
@@ -264,8 +270,8 @@ searched in this order for each key:
 
 </div>
 
-Among `@PropertySource` annotations, the one processed last wins, and they
-are processed in the order they are written. The VWO lists
+Spring processes `@PropertySource` annotations in the order they are
+written, and the one processed last wins. The VWO lists
 `environment.properties` first and `api.properties` second, so a key in
 both files takes the value from `api.properties`. That is why the move
 below deletes `application-description` from `api.properties` instead of
@@ -289,9 +295,9 @@ The `dev` and `production` profiles deploy from whichever machine runs
 the build. The server names, users
 and paths they need come from the parent POM, `pom-userProperties.xml`,
 which is why that file exists ([chapter 2](build-02-maven-project.md)).
-The pipeline builds with `mvn clean -U package ... -P gitlab-${PROFILE}`,
-the profiles that only pick the environment file, and deploys the
-resulting Docker image itself (chapter 22).
+The pipeline builds with `mvn clean -U package ... -P gitlab-${PROFILE}`.
+Those `gitlab-*` profiles only pick the environment file. The pipeline
+then deploys the resulting Docker image itself (chapter 22).
 
 <div class="callout danger">
 <div class="callout-label">Never <code>-Pdev</code> on the VWO API</div>
@@ -303,7 +309,7 @@ the parent POM holds real server names and the SSH setup reaches the jump
 server, so it would work: the WAR on the shared test server is deleted
 and replaced by whatever you just built. `-Pproduction` does the same to
 production and restarts its Tomcat. Build the VWO API locally only with
-`-Pgitlab-dev`, as `vwo-local-restart` does; its comment says the same.
+`-Pgitlab-dev`, as `vwo-local-restart` does. Its comment says the same.
 
 </div>
 
@@ -316,7 +322,7 @@ The VWO commits both environment files to git, database passwords
 included, and, as shown above, both end up in every WAR. TechOlympiad
 does not repeat that. `environmentAPI.local.properties` will hold the
 passwords of the throwaway local database from chapter 7, which protect
-nothing. `environmentAPI.prod.properties` holds placeholders only; a real
+nothing. `environmentAPI.prod.properties` holds placeholders only. A real
 production deployment would have to inject its secrets at deploy time,
 and this book never deploys to production.
 
@@ -369,7 +375,7 @@ application-description=TechOlympiad API
 ```
 
 The VWO's two files have the same keys in the same order, with different
-values; ours will too. Chapter 8 adds the database keys, chapter 20 the
+values, and ours will too. Chapter 8 adds the database keys, chapter 20 the
 JWT secret and chapter 21 the log settings. The comment on the first line
 is only there so you can see which file was copied.
 
@@ -688,7 +694,7 @@ and every URL under `/techolympiad` is a Tomcat 404. Build with
 <div class="callout-label">When it breaks</div>
 
 - **`class path resource [environment.properties] cannot be opened because it does not exist`**: the WAR was built without a profile. After `clean`, nothing writes the file. Rebuild with `-Plocal`.
-- **It works, but only until the next `clean`**: a build without a profile reuses the `environment.properties` left in `target/classes` by an earlier one. Always pass the profile; `mvn clean -Plocal package` shows whether you depend on a leftover.
+- **It works, but only until the next `clean`**: a build without a profile reuses the `environment.properties` left in `target/classes` by an earlier one. Always pass the profile. `mvn clean -Plocal package` shows whether you depend on a leftover.
 - **`The requested profile "loacl" could not be activated because it does not exist.`**: a typo in `-P`. Maven 3 only warns, then builds without the profile, which ends in the error above.
 - **`Warning: Could not find file .../environmentAPI.locl.properties to copy.`** and a failed antrun execution: the file name in the Ant target does not match the file in `src/main/resources`.
 - **The Swagger title does not change when you edit `environmentAPI.local.properties`**: the key is still in `api.properties` too, which wins. Remove it there.
@@ -713,14 +719,14 @@ and every URL under `/techolympiad` is a Tomcat 404. Build with
 <ol class="quiz-options">
 <li>The one from <code>environment.properties</code>, because it is declared first<p class="quiz-whynot">Earlier is not stronger: each later <code>@PropertySource</code> is placed above the earlier ones.</p></li>
 <li data-correct>The one from <code>api.properties</code>, because the last <code>@PropertySource</code> processed wins<p class="quiz-why">That is why the move deletes the key from <code>api.properties</code>.</p></li>
-<li>Startup fails with a duplicate key<p class="quiz-whynot">Spring never complains about a key in several sources; it uses the first one found in its ranking.</p></li>
+<li>Startup fails with a duplicate key<p class="quiz-whynot">Spring never complains about a key in several sources. It uses the first one found in its ranking.</p></li>
 </ol>
 </div>
 
 <div class="quiz" data-quiz>
 <p class="quiz-q">Why does the VWO's <code>replace-file</code> macro delete the target before copying?</p>
 <ol class="quiz-options">
-<li>Because Ant's <code>&lt;copy&gt;</code> fails when the target exists<p class="quiz-whynot">It does not fail; it quietly skips the copy when the target is newer than the source.</p></li>
+<li>Because Ant's <code>&lt;copy&gt;</code> fails when the target exists<p class="quiz-whynot">It does not fail. It quietly skips the copy when the target is newer than the source.</p></li>
 <li data-correct>Because <code>&lt;copy&gt;</code> skips a target that is newer than the source, so switching profiles without <code>clean</code> would keep the old file<p class="quiz-why">The previous copy is always newer than the source files, so only a delete guarantees the new copy.</p></li>
 <li>To remove secrets from <code>target/</code> after the build<p class="quiz-whynot">The delete runs before the copy, and the copied file stays in <code>target/classes</code> and in the WAR.</p></li>
 </ol>
@@ -729,7 +735,7 @@ and every URL under `/techolympiad` is a Tomcat 404. Build with
 ### Flashcards
 
 <div class="flashcards" data-flashcards data-front-label="Term" data-back-label="Meaning">
-<div class="card"><div class="front">Maven profile</div><div class="back">A named part of the POM, merged in when activated with <code>-P</code>. Changes only the build; the running application never sees it.</div></div>
+<div class="card"><div class="front">Maven profile</div><div class="back">A named part of the POM, merged in when activated with <code>-P</code>. Changes only the build. The running application never sees it.</div></div>
 <div class="card"><div class="front">Plugin execution</div><div class="back"><code>id</code>, <code>phase</code>, <code>goals</code>, <code>configuration</code>: runs a plugin goal at a chosen point in the lifecycle.</div></div>
 <div class="card"><div class="front"><code>maven-antrun-plugin</code></div><div class="back">Runs Ant tasks inside a Maven build. The VWO uses it to copy the environment file, and in <code>dev</code>/<code>production</code> to deploy.</div></div>
 <div class="card"><div class="front"><code>@{file}</code> versus <code>${...}</code></div><div class="back"><code>@{}</code>: a <code>macrodef</code> attribute. <code>${}</code>: an Ant property, including the Maven properties antrun passes in.</div></div>
@@ -743,7 +749,7 @@ and every URL under `/techolympiad` is a Tomcat 404. Build with
 <details class="qa">
 <summary>Self-check: why does Ant's copy run in <code>compile</code> and not in <code>process-resources</code>, and would <code>process-resources</code> work too?</summary>
 <div class="ans">
-The VWO chose <code>compile</code>; either works, because the file only has to be in <code>target/classes</code> before <code>war:war</code> runs in <code>package</code>. In <code>process-resources</code> it would run after the resources plugin, since the packaging's binding comes first within a phase.
+The VWO chose <code>compile</code>, but either works, because the file only has to be in <code>target/classes</code> before <code>war:war</code> runs in <code>package</code>. In <code>process-resources</code> it would run after the resources plugin, since the packaging's binding comes first within a phase.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>
@@ -759,7 +765,7 @@ Not as far as the files go: every VWO WAR contains both <code>environmentAPI.dev
 <details class="qa">
 <summary>Self-check: what is the difference between <code>mvn -Plocal package</code> and starting the application with <code>--spring.profiles.active=local</code>?</summary>
 <div class="ans">
-The first activates a Maven profile at build time: the <code>local</code> environment file is copied into the WAR. The second activates a Spring profile at run time, which would make Spring look for <code>application-local.properties</code> and <code>@Profile("local")</code> beans; TechOlympiad, like the VWO, has neither, so it would change nothing.
+The first activates a Maven profile at build time: the <code>local</code> environment file is copied into the WAR. The second activates a Spring profile at run time, which would make Spring look for <code>application-local.properties</code> and <code>@Profile("local")</code> beans. TechOlympiad, like the VWO, has neither, so it would change nothing.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

@@ -10,9 +10,9 @@
 
 After round 1 the answer sheets come in, every sheet is compared with the
 key, and everyone at or above the cut-off goes on to round 2. This is
-the heart of the contest, and it is the one place where TechOlympiad
-deliberately does more than the VWO API: the VWO fills in results
-outside the API, while TechOlympiad gets three endpoints for it.
+the heart of the contest. It is also the one place where TechOlympiad
+deliberately does more than the VWO API. The VWO fills in results
+outside the API. TechOlympiad gets three endpoints for it.
 
 <div class="table-wrap">
 
@@ -27,8 +27,8 @@ outside the API, while TechOlympiad gets three endpoints for it.
 Each of them reads from several tables and writes to one or two, and
 each must succeed or fail as a whole. A half-scored round, or a round 2
 list with only the first 40 selected pupils, is worse than no result at
-all. So the logic lives in one repository, `ToScoringRepositoryImpl`,
-whose methods each run in a single read-write transaction spanning
+all. So the logic lives in one repository, `ToScoringRepositoryImpl`.
+Each of its methods runs in a single read-write transaction that spans
 several DAOs, with `rollbackFor = Exception.class`. The VWO does the
 same for its Kangoeroe answer forms in
 `KangoeroePoolsTemporaryAnswersRepositoryImpl`, and that file is the
@@ -96,13 +96,16 @@ public RoundResult selectForNextRound(byte round, Configuration.ToRole edition) 
 The VWO API has three layers: controller interfaces, repositories and
 DAOs. There is no service layer. The only `@Service` classes in the
 source are in the `security` package (`UserAuthenticationService`,
-`JWTTokenService` and friends); everything else that is more than a
-query sits in a `*RepositoryImpl`. `FunctiesRepositoryImpl.transferFunctions`
-moves a responsibility and then patches payments, invoices and tolerance
-periods through four DAOs; `KangoeroePoolsTemporaryAnswersRepositoryImpl`
-validates answer forms and stores them through two DAOs in one
-transaction. The repository is the VWO's service layer under another
-name.
+`JWTTokenService` and similar classes). All other code that does more
+than a query sits in a `*RepositoryImpl`. Two examples:
+
+- `FunctiesRepositoryImpl.transferFunctions` moves a responsibility.
+  Then it patches payments, invoices and tolerance periods through four
+  DAOs.
+- `KangoeroePoolsTemporaryAnswersRepositoryImpl` validates answer forms
+  and stores them through two DAOs in one transaction.
+
+The repository is the VWO's service layer under another name.
 
 TechOlympiad follows it. `ToScoringRepository` is a repository in the
 VWO sense: an interface marked `@NoRepositoryBean`, an implementation
@@ -184,10 +187,14 @@ not committed yet.
 Inside `scoreRound`, every read goes through `toR`, every write through
 `toRW`. Read first, then write, and never read back what you wrote in
 the same method: you would get the committed state from before the
-transaction. The VWO's Kangoeroe repository is built the same way (an
-outer read, `self.saveAnswers` writing in RW, then `self.getAnswers`
-reading in a new transaction), and all three methods in this chapter
-read everything before they write anything.
+transaction. The VWO's Kangoeroe repository uses the same order:
+
+1. An outer read.
+2. `self.saveAnswers` writes in RW.
+3. `self.getAnswers` reads in a new transaction.
+
+All three methods in this chapter read everything before they write
+anything.
 
 </div>
 
@@ -197,10 +204,10 @@ read everything before they write anything.
 exception (`RuntimeException` or `Error`). A
 <dfn data-def="An Exception that is not a RuntimeException. The compiler requires callers to catch it or declare it with throws; C# has no equivalent.">checked exception</dfn>
 such as `IOException` does **not** trigger a rollback by default: Spring
-commits whatever was done and then rethrows. That rule dates from EJB (Enterprise JavaBeans, the Java EE component
-model that came before Spring),
-where checked exceptions meant "a business outcome the caller should
-handle", not "the unit of work failed".
+commits whatever was done and then rethrows. That rule comes from EJB
+(Enterprise JavaBeans), the Java EE component model that came before
+Spring. In EJB, a checked exception meant "a business outcome the caller
+should handle". It did not mean "the unit of work failed".
 
 `rollbackFor = Exception.class` widens the rule to every exception. All
 three scoring methods carry it, like the VWO's `saveAnswers`. Today they
@@ -220,9 +227,9 @@ Two more rules complete the picture:
 ### Self-invocation, again
 
 The transactional proxy only sees calls that come in from outside the
-bean. If `scoreRound` called `this.selectForNextRound(...)`, the
-annotation on `selectForNextRound` would be ignored, which here happens
-to be harmless because both use the same manager and propagation. The
+bean. If `scoreRound` called `this.selectForNextRound(...)`, Spring
+would ignore the annotation on `selectForNextRound`. Here that would do
+no harm, because both methods use the same manager and propagation. The
 VWO needs different settings for its inner calls (`REQUIRES_NEW`, a
 different manager), so it injects the bean into itself:
 
@@ -272,23 +279,29 @@ for a question left blank. The sheet scores one point per position where
 the pupil's letter is among the accepted answers for that question. The
 key comes from the rows of `Antwoorden`, not from the answer string of
 chapter 15, so a question that accepts `B,D` gives a point for either
-letter. A round is scored only if its key is complete (30 rows); a
+letter. A round is scored only if its key is complete (30 rows). A
 pupil without a sheet keeps `RESULTAAT` `NULL` and is not selected.
 
 ### A view as an `@Immutable` entity
 
 `Leerling_tweede_ronde_full` is a view: round 1 columns joined with the
-round 2 result. Hibernate maps it like a table, since a `SELECT` on a
-view looks like a `SELECT` on a table, as the VWO's
-`LeerlingTweedeRondeFull` does. `@Immutable` (from `org.hibernate.annotations`)
-tells Hibernate the entity is read-only: it never checks loaded
-instances for changes and never generates an `UPDATE`. That saves the
-dirty-checking work (comparing each loaded entity with its original state
-to find changes, like EF Core's change tracker) and, more importantly, prevents an accidental
-setter call from turning into an `UPDATE` on a view that MariaDB could
-not perform anyway. The view's own key is the round 1 `PERSOON_ID`, so
-the entity inherits `ToParticipant` unchanged; the `@GeneratedValue` on
-that field never matters, because nothing ever inserts into a view.
+round 2 result. A `SELECT` on a view looks like a `SELECT` on a table,
+so Hibernate maps the view like a table. The VWO's
+`LeerlingTweedeRondeFull` does the same.
+
+`@Immutable` (from `org.hibernate.annotations`) tells Hibernate the
+entity is read-only. Hibernate then never checks loaded instances for
+changes and never generates an `UPDATE`. This has two effects:
+
+- It saves the dirty-checking work. Dirty checking compares each loaded
+  entity with its original state to find changes, like EF Core's change
+  tracker.
+- More importantly, an accidental setter call cannot turn into an
+  `UPDATE` on the view. MariaDB could not perform that `UPDATE` anyway.
+
+The view's own key is the round 1 `PERSOON_ID`, so the entity inherits
+`ToParticipant` unchanged. The `@GeneratedValue` on that field never
+matters, because nothing ever inserts into a view.
 
 ### Round 2 has no entity hierarchy of its own
 
@@ -990,7 +1003,7 @@ public class ToScoringRepositoryImpl implements ToScoringRepository {
 4. The key is read before any write, which is the order the R/RW split requires.
 5. `cutOff` is a local captured by a lambda, so it must be effectively final. `getResultaat()` returns a `Byte`, unboxed for the comparison; the `filter` before it guarantees it is not `null`.
 6. Selecting again replaces the earlier selection for this edition, including any round 2 answers already stored. The bulk `DELETE` runs at once; the `INSERT`s of `addAll` follow at commit.
-7. `count()` returns a `long`; at most 30, so the cast to `byte` is safe. A set value like `B,D` contains the letter, so either answer scores.
+7. `count()` returns a `long`. The value is at most 30, so the cast to `byte` is safe. A set value like `B,D` contains the letter, so either answer scores.
 
 </div>
 
@@ -1227,7 +1240,7 @@ cut-off is 18. The seeded JTO pupils have `personId` 1 (Lotte), 2 (Mats),
 <details class="qa">
 <summary>Self-check: what goes wrong if <code>selectForNextRound</code> calls <code>addAll</code> first and <code>deleteByEdition</code> second?</summary>
 <div class="ans">
-<code>addAll</code> would attach the new round 2 rows and, at flush, insert them; the bulk <code>DELETE</code> makes Hibernate flush first, so the rows are inserted and then deleted again by the same statement. You end up with an empty round 2. (If a previous selection existed, the inserts could also collide with the old rows before the delete.) Bulk statements bypass the persistence context, so order them before you attach entities.
+<code>addAll</code> would attach the new round 2 rows, and Hibernate would insert them at the next flush. The bulk <code>DELETE</code> makes Hibernate flush before it runs. So the rows are inserted first, and then the same <code>DELETE</code> removes them again. You end up with an empty round 2. (If a previous selection existed, the inserts could also collide with the old rows before the delete.) Bulk statements bypass the persistence context, so order them before you attach entities.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

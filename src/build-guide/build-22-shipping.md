@@ -9,17 +9,26 @@
 <div class="level overview">
 
 Locally, TechOlympiad runs as a WAR mounted into a stock Tomcat
-container. The VWO API ships differently: GitLab builds the WAR, bakes
-it into a Docker image with Tomcat, pushes that image to the GitLab
-registry, and a deploy job starts it on a server over SSH. A tool called
-semantic-release decides the version number from the commit messages.
+container. The VWO API ships differently:
 
-This chapter does the parts that run on your machine: a `Dockerfile`
-like the VWO's, an image built from it, that image run against the
-compose database, and a version bump. Then it reads the parts that run
-on GitLab: the VWO's `.gitlab-ci.yml`, `.releaserc.json`, the parent pom
-`pom-userProperties.xml` and the deploy targets in `ant.xml`. Nothing is
-pushed anywhere. The chapter, and the build guide, end with a map from
+1. GitLab builds the WAR.
+2. GitLab bakes the WAR into a Docker image with Tomcat.
+3. GitLab pushes that image to the GitLab registry.
+4. A deploy job starts the image on a server over SSH.
+
+A tool called semantic-release decides the version number from the
+commit messages.
+
+This chapter first does the parts that run on your machine:
+
+- a `Dockerfile` like the VWO's
+- an image built from it
+- that image, run against the compose database
+- a version bump
+
+Then it reads the parts that run on GitLab: the VWO's `.gitlab-ci.yml`,
+`.releaserc.json`, the parent pom `pom-userProperties.xml` and the
+deploy targets in `ant.xml`. Nothing is pushed anywhere. The chapter, and the build guide, end with a map from
 every TechOlympiad file to its VWO original.
 
 **After this chapter you can:**
@@ -98,7 +107,7 @@ paths (`/src/main/resources/environment.properties`, `.gitignore`,
 which is all the `Dockerfile` reads.
 
 The build cache reuses a layer when the instruction and its inputs are
-unchanged. After a code change only the `COPY` layer is rebuilt; the
+unchanged. After a code change only the `COPY` layer is rebuilt. The
 Tomcat layers come from the cache. This is why the slow, rarely changing
 steps come first and the application last.
 
@@ -110,8 +119,8 @@ container from a new image.
 
 The VWO's image also puts a `webapps/ROOT/index.html` in place, so the
 server's root URL shows a page instead of Tomcat's `404`. And it starts
-`FROM tomcat:9`, a tag that follows the newest JDK Tomcat ships, today
-Java 25, as chapter 1 noted. TechOlympiad pins `tomcat:9-jdk17`, the
+`FROM tomcat:9`. That tag follows the newest JDK that Tomcat ships,
+which today is Java 25, as chapter 1 noted. TechOlympiad pins `tomcat:9-jdk17`, the
 image the compose file uses, so the container runs what you tested.
 
 In .NET terms this is the `mcr.microsoft.com/dotnet/aspnet` base image
@@ -121,7 +130,7 @@ is built outside the `Dockerfile`, by Maven, in an earlier CI job.
 ### The VWO pipeline
 
 GitLab reads `.gitlab-ci.yml` on every push. It defines jobs, grouped in
-stages that run in order; jobs in one stage can run in parallel, and
+stages that run in order. Jobs in one stage can run in parallel.
 `needs:` lets a job start as soon as the jobs it names are done. Each
 job runs in a fresh container of the `image:` it names. The pieces map
 one to one onto GitHub Actions (workflow, jobs, `needs`, `runs-on`
@@ -198,9 +207,9 @@ cleanup_registry:
 2. The parent pom is not in git (see below), so the job creates it from the template.
 3. `-U` forces Maven to check for updated dependencies, `-Dmaven.test.skip=true` skips compiling the tests too, and `versions:display-dependency-updates` prints which dependencies have newer versions. `-P gitlab-${PROFILE}` picks the profile that copies the right environment file and deploys nothing.
 4. The WAR is handed to later jobs as an artifact and deleted ten minutes later.
-5. Computes and tags the next version; `|| true` keeps the job green when semantic-release fails, so a broken release goes unnoticed.
+5. Computes and tags the next version. `|| true` keeps the job green when semantic-release fails, so a broken release goes unnoticed.
 6. A dotenv report: `VERSION` becomes an environment variable in the jobs that `need` this one.
-7. Kaniko builds images in user space, from a `Dockerfile`, without a Docker daemon. GitLab runners usually cannot run Docker inside a container without privileged mode; Kaniko avoids it.
+7. Kaniko builds images in user space, from a `Dockerfile`, without a Docker daemon. GitLab runners usually cannot run Docker inside a container without privileged mode. Kaniko avoids that need.
 8. Registry credentials from GitLab's predefined variables, for this job only.
 9. The image gets two tags: the version (or the commit hash when there is none) and `latest`.
 10. The deploy key is a project CI/CD variable, never in the file. The same goes for `SERVER_NAME`: the job picks an environment (`development` or `production`) from the profile, and GitLab hands it that environment's variables.
@@ -266,10 +275,13 @@ the last tag in the
 <dfn data-def="A commit message format: type(scope): subject, for example feat: add v2 dates or fix: close enrolment after round 1. A footer BREAKING CHANGE: marks an incompatible change.">Conventional Commits</dfn>
 format: a `fix:` raises the patch number, a `feat:` the minor, a
 `BREAKING CHANGE:` footer the major. A commit without such a prefix
-counts for nothing. The release notes generator writes the changelog
-text, the GitLab plugin creates the tag (`v1.4.2`) and a GitLab release
-(it needs a token variable), and the exec plugin writes the bare version
-to `.version` for the pipeline.
+counts for nothing. Three more plugins then do the release:
+
+- The release notes generator writes the changelog text.
+- The GitLab plugin creates the tag (`v1.4.2`) and a GitLab release. It
+  needs a token variable.
+- The exec plugin writes the bare version to `.version` for the
+  pipeline.
 
 Nothing writes the version back into the code: no plugin edits
 `pom.xml` or `api.properties`, and there is no `@semantic-release/git`
@@ -313,10 +325,10 @@ The VWO's `pom.xml` has a parent:
 `pom-userProperties.xml` is a `pom`-packaged project with only
 properties: for each server (the jump server, a transfer server, the
 production and the test API server) a user name, a host name and a path.
-The real file is in `.gitignore`; the repository holds
-`pom-userProperties.xml.tmpl` with the values, which the CI job copies
+The real file is in `.gitignore`. The repository holds
+`pom-userProperties.xml.tmpl` with the values, and the CI job copies it
 into place. Maven resolves a parent through `relativePath` first, so
-without that file no VWO build starts at all; your local VWO copy has
+without that file no VWO build starts at all. Your local VWO copy has
 one with every value set to `nothing`.
 
 The properties exist for `ant.xml`. Its `copy-properties` macro is the
@@ -333,9 +345,10 @@ one TechOlympiad copied in chapter 6. The rest uploads WARs:
 ```
 
 `scp-project` removes the old WAR on the server and copies the new one
-over the jump server with `scp -o ProxyCommand='ssh ... -W %h:%p ...'`;
-`upload-and-restart` then runs `sudo service tomcat9 restart`. This is
-the pre-Docker deployment, Tomcat installed on the server itself.
+over the jump server with `scp -o ProxyCommand='ssh ... -W %h:%p ...'`.
+Then `upload-and-restart` runs `sudo service tomcat9 restart`. This is
+the deployment from before Docker, with Tomcat installed on the server
+itself.
 
 The Maven profiles `dev` and `production` run these targets in the
 `package` phase. So `mvn package -Pdev` on a laptop with the real
@@ -404,10 +417,11 @@ image: only the `COPY` runs.
 
 ### Run it
 
-The compose database is on the network compose created for the project,
-`techolympiad_default`, where it answers to the name `db`, the host the
-local environment file points at. Start the image on that network, on a
-port of its own so the compose `api` service can keep running:
+The compose database is on the network that compose created for the
+project, `techolympiad_default`. On that network the database answers to
+the name `db`, which is the host that the local environment file points
+at. Start the image on that network, on a port of its own, so the
+compose `api` service can keep running:
 
 ```bash
 docker compose up -d db
@@ -423,9 +437,9 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8082/techolympiad/api
 ```
 
 `302` (the Swagger UI redirects to its `index.html`), then the four
-schools. The application is the same; only the WAR now lives inside the
-image instead of being mounted. Stop it with `Ctrl+C`; `--rm` removes the
-container.
+schools. The application is the same. Only the WAR now lives inside the
+image instead of being mounted. Stop it with `Ctrl+C`. `--rm` removes
+the container.
 
 Try the build argument: `docker build --build-arg WAR_FILENAME=ROOT.war -t techolympiad-api:root .`
 and run that image. The API is now at `http://localhost:8082/api/v1/...`,
@@ -540,18 +554,23 @@ docker_build_and_push:
       optional: true
 ```
 
-Compared with the VWO's: it builds with our `production` profile, so the
-WAR always has an environment file; `semantic-release` may fail the job;
-and the image only gets its version tag, no shared `latest`. Since the
-pom has no `gitlab-*` profiles, the reading copy uses `production`
-directly, which is harmless because our profiles deploy nothing.
+Compared with the VWO's file, three things differ:
+
+- It builds with our `production` profile, so the WAR always has an
+  environment file.
+- `semantic-release` may fail the job.
+- The image only gets its version tag, with no shared `latest`.
+
+The pom has no `gitlab-*` profiles, so the reading copy uses
+`production` directly. That is harmless, because our profiles deploy
+nothing.
 
 <div class="callout danger">
 <div class="callout-label">When it breaks</div>
 
 - **`COPY failed: file not found in build context: target/techolympiadAPI.war`**: you built the image before the WAR, or `.dockerignore` excludes it. Run `mvn package` first and check the `!` line.
 - **The container logs `Connection refused` or `UnknownHostException: db`**: it is not on `techolympiad_default`, or the `db` service is not running. `docker network ls` shows the network's real name if your project folder has another name.
-- **`port is already allocated`**: `8082` is taken. Choose another; never `8080` or `3307`, which belong to the local VWO stack.
+- **`port is already allocated`**: `8082` is taken. Choose another, but never `8080` or `3307`, which belong to the local VWO stack.
 - **Swagger still shows `0.1.0`**: only one of the two files was changed, or the compose service still mounts the old WAR. Rebuild, then `docker compose restart api`.
 - **The image runs Java 25**: the `FROM` line says `tomcat:9`. Pin `tomcat:9-jdk17`.
 
@@ -617,10 +636,10 @@ Everything left is built from the pieces you have now built yourself.
 Some places to start, with what to look for:
 
 - **Kangoeroe pools and teams.** `KangoeroePoolsParticipantsController` and `TeamController`, their repositories `PoolsRepositoryImpl`, `TeamsRepositoryImpl` and `KangoeroeTeamsTemporaryAnswersRepositoryImpl`. You will recognise the multi-DAO transactions of chapter 16, `TeamException` and `IllegalQuestionTypeException` from chapter 18, and the interface-local `@ExceptionHandler` for `NoSuchElementException`.
-- **Invoicing.** `InvoiceController`, `InvoiceRepositoryImpl` and the `Betalingen*` and `ScholenFacturatie` entities; `SchoolController.updateInvoiceData` takes a record body. Read it with chapter 13's records and chapter 17's native SQL in mind.
+- **Invoicing.** `InvoiceController`, `InvoiceRepositoryImpl` and the `Betalingen*` and `ScholenFacturatie` entities. `SchoolController.updateInvoiceData` takes a record body. Read it with chapter 13's records and chapter 17's native SQL in mind.
 - **The digital contest (usolv-it).** The `usolvit-codes` endpoints of `VwoParticipantsController`, `LeerlingVWORepositoryImpl.createUsolvitCodes` and the `LeerlingVwoUsolvit*` entities. `findByUsolvitCode` is the method with the `@Cacheable` that fails, from chapter 21.
 - **Surveys, documents, certificates and reports.** The `Enquetes*`/`Survey*` controllers, `DocumentsController`, `CertificatesController`, `ReportsController`: the same interface-plus-versioned-class pattern, sometimes with `v1` and `v2` classes of different names.
-- **The shape of the whole.** `hibernate_VWO.cfg.xml` lists every entity; walking its `<mapping>` lines is a tour of the database, and for each one the DAO, the repository and the controller sit where TechOlympiad taught you to look.
+- **The shape of the whole.** `hibernate_VWO.cfg.xml` lists every entity. Its `<mapping>` lines give a tour of the database. For each entity, the DAO, the repository and the controller sit where TechOlympiad taught you to look.
 
 ### Quiz
 

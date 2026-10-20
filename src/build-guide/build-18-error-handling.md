@@ -8,11 +8,16 @@
 
 <div class="level overview">
 
-Every endpoint so far handles failure on its own. A missing person ends
-in `.orElse(ResponseEntity.notFound().build())` and an empty body, a
-foreign key violation escapes as a `500` with Spring Boot's generic
-error body, and a missing registration fee is an `Optional` passed all
-the way up to the controller. This chapter moves that into one place.
+Every endpoint so far handles failure on its own. For example:
+
+- A missing person ends in `.orElse(ResponseEntity.notFound().build())`
+  and an empty body.
+- A foreign key violation escapes as a `500` with Spring Boot's generic
+  error body.
+- A missing registration fee is an `Optional` passed all the way up to
+  the controller.
+
+This chapter moves that error handling into one place.
 
 The VWO API has that place: `restAPI/ErrorAdvice.java`, a class Spring
 consults whenever a controller throws. It turns a refused database row
@@ -126,8 +131,8 @@ body from `DefaultErrorAttributes`:
 
 The exception message is not in it. Spring Boot 2.3 changed
 `server.error.include-message` to `never`, so the reason only appears in
-the Tomcat log. That is safe, because messages can leak SQL, but useless
-to a client that sent a bad id.
+the Tomcat log. Hiding the message is safe, because messages can leak
+SQL. But it does not help a client that sent a bad id.
 
 ### The resolver chain
 
@@ -148,16 +153,20 @@ and asks them in order until one returns a result:
 
 Resolvers 2 to 4 sit in one `HandlerExceptionResolverComposite` created
 by `WebMvcConfigurationSupport`, in exactly that order. Two consequences
-follow. A request for `/api/v1/school/abc` fails to convert `abc` to a
-`Short`; nothing of ours handles that, so resolver 4 answers `400`. And
-an `@ExceptionHandler` always runs before Spring's own defaults, so a
-handler for a broad type such as `RuntimeException` would also capture
-that conversion error, because `MethodArgumentTypeMismatchException` is
-a `RuntimeException`. The VWO has such a catch-all in `ErrorAdvice`,
-commented out, mapping every `RuntimeException` to `409`. Leaving it out
-is the right call: it would turn a `400` for a bad parameter, and the
-`403` of an `AccessDeniedException` from [chapter 20](build-20-authentication.md),
-into `409`.
+follow:
+
+1. A request for `/api/v1/school/abc` fails to convert `abc` to a
+   `Short`. Nothing of ours handles that, so resolver 4 answers `400`.
+2. An `@ExceptionHandler` always runs before Spring's own defaults. So a
+   handler for a broad type such as `RuntimeException` would also capture
+   that conversion error, because `MethodArgumentTypeMismatchException`
+   is a `RuntimeException`.
+
+The VWO has such a catch-all in `ErrorAdvice`, commented out, that maps
+every `RuntimeException` to `409`. Leaving it out is the right call. It
+would turn two other statuses into `409`: the `400` for a bad parameter,
+and the `403` of an `AccessDeniedException` from
+[chapter 20](build-20-authentication.md).
 
 ### `@ExceptionHandler` and `@RestControllerAdvice`
 
@@ -207,11 +216,12 @@ public class NotFoundException extends RuntimeException { ... }
 
 Resolver 3 then answers with `sendError(404, reason)`, and the client gets
 Spring Boot's `/error` body, without the message. That is why
-TechOlympiad handles `NotFoundException` in `ErrorAdvice` instead: one
-JSON shape for every error the API itself raises. `ResponseStatusException`
-is the same mechanism without a class of your own,
-`throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "...")`, and
-chapter 20 uses it for the login endpoint.
+TechOlympiad handles `NotFoundException` in `ErrorAdvice` instead. This
+gives one JSON shape for every error the API itself raises.
+
+`ResponseStatusException` is the same mechanism without a class of your
+own: `throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "...")`.
+Chapter 20 uses it for the login endpoint.
 
 ### Two `ConstraintViolationException`s
 
@@ -254,7 +264,7 @@ the Hibernate exception, and calls the `409` handler with it. The
 handler's parameter receives the cause, not the wrapper. Before Spring
 5.3 only the top-level exception counted (with one level of cause from
 4.3), and this handler, the VWO's included, would have been dead code.
-TechOlympiad therefore needs no handler for the wrappers; adding one for
+TechOlympiad therefore needs no handler for the wrappers. A handler for
 `DataIntegrityViolationException` would even take precedence and hide
 the MariaDB message.
 
@@ -299,14 +309,17 @@ default ResponseEntity<Float> get(@PathVariable("edition") Configuration.ToRole 
 
 Java has two kinds of exceptions. A
 <dfn data-def="A subclass of Exception that is not a RuntimeException. The compiler forces every caller to catch it or declare it with throws.">checked exception</dfn>
-must be declared with `throws` on every method it passes through; C#
+must be declared with `throws` on every method it passes through. C#
 has nothing like it. An unchecked exception, a subclass of
-`RuntimeException`, needs no declaration, which is why
-`NotFoundException` and `RoundClosedException` extend it, as the VWO's
-`IllegalQuestionTypeException` and `TeamException` do. It matters for
-transactions too: `@Transactional` rolls back on unchecked exceptions
-only, unless you add `rollbackFor`, which is why the scoring repository
-of chapter 16 says `rollbackFor = Exception.class`.
+`RuntimeException`, needs no declaration. That is why
+`NotFoundException` and `RoundClosedException` extend
+`RuntimeException`, as the VWO's `IllegalQuestionTypeException` and
+`TeamException` do.
+
+The kind of exception matters for transactions too. `@Transactional`
+rolls back on unchecked exceptions only, unless you add `rollbackFor`.
+That is why the scoring repository of chapter 16 says
+`rollbackFor = Exception.class`.
 
 ### What goes in the body
 
@@ -326,11 +339,16 @@ The map is a `HashMap` on purpose. `Map.of` rejects `null` values, and
 `NullPointerException` inside the error handler and produce exactly the
 `500` it was meant to prevent.
 
-The VWO is not consistent about this shape. `TeamException` carries its
-own `HttpStatus` and is answered with plain text, the local handlers in
-`KangoeroePoolsParticipantsController` answer `text/plain` too, and the
-`AccessDeniedException` handler returns `map.toString()`, which is the
-text `{message=..., description=...}` and not JSON. The repeated
+The VWO is not consistent about this shape:
+
+- `TeamException` carries its own `HttpStatus` and is answered with
+  plain text.
+- The local handlers in `KangoeroePoolsParticipantsController` answer
+  `text/plain` too.
+- The `AccessDeniedException` handler returns `map.toString()`. That is
+  the text `{message=..., description=...}`, not JSON.
+
+The repeated
 `FIXME in Spring 6: produces = ...` comments refer to a `produces`
 attribute on `@ExceptionHandler` that only Spring 6.2 has.
 
@@ -565,7 +583,7 @@ may differ in names; the change is the same:
 ### The fee: throwing in the repository
 
 Here the exception moves one layer down. The repository knows there is
-no fee; the controller no longer needs to know there could be none.
+no fee. The controller no longer needs to know there could be none.
 
 `restAPI/repositories/RegistrationFeeRepository.java`:
 
@@ -630,7 +648,8 @@ no fee; the controller no longer needs to know there could be none.
 </div>
 
 The return type is back to the VWO's `float`, and so is the shape of the
-controller; only the `NullPointerException` is gone.
+controller. The only difference is that the `NullPointerException` is
+gone.
 
 ### Closing enrolment with `RoundClosedException`
 
@@ -731,7 +750,7 @@ interface method.
 mvn -q -DskipTests -Plocal package && docker compose restart api
 ```
 
-Use the Swagger UI or `curl`; the base URL is
+Use the Swagger UI or `curl`. The base URL is
 `http://localhost:8081/techolympiad/api/v1`.
 
 1. A person that does not exist:
@@ -768,13 +787,13 @@ Use the Swagger UI or `curl`; the base URL is
    ```
 
    The log still shows a `DataIntegrityViolationException` (for a
-   duplicate key it is a `JpaSystemException`): that is the exception
-   thrown; the handler received the Hibernate exception from its cause
-   chain.
+   duplicate key it is a `JpaSystemException`). That is the exception
+   that was thrown. The handler received the Hibernate exception from
+   the cause chain of that exception.
 4. A body that fails `@Valid`: `POST /to/participation` with
    `{"schoolId": 1}` gives `400` and
-   `"description":"edition must not be null"` (or another missing field;
-   the first one found is reported).
+   `"description":"edition must not be null"` (or another missing field:
+   the response reports the first one found).
 5. Spring's own resolver: `GET /school/abc` gives `400` with Spring
    Boot's body (`timestamp`, `status`, `error`, `path`). No handler of
    ours matches, so `DefaultHandlerExceptionResolver` answered.

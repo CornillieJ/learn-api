@@ -24,7 +24,7 @@ Six pieces, each a copy of a VWO piece:
 | `GroupedOpenApi v1Api()` bean | the same | The `v1` entry in the UI's definition list |
 | `application.properties` | the same file | Where the UI lives and how it sorts |
 | `controllers/v1/V1Config` | the same class | The `/api/v1` prefix |
-| `controllers/v1/HelloController` | none; deleted again in chapter 11 | Something to call |
+| `controllers/v1/HelloController` | none. Deleted again in chapter 11 | Something to call |
 
 </div>
 
@@ -111,7 +111,7 @@ Spring MVC is built around one servlet, the
 <dfn data-def="Spring MVC's front controller: the single servlet that receives every request and hands it to the right controller method.">DispatcherServlet</dfn>.
 Spring Boot's `DispatcherServletAutoConfiguration` registers it in Tomcat
 at `/`, so it receives every request for `/techolympiad/*`. It does not
-handle requests itself; it finds a handler, calls it, and turns the result
+handle requests itself. It finds a handler, calls it, and turns the result
 into a response. ASP.NET Core does the same with its routing and endpoint
 middleware.
 
@@ -133,9 +133,11 @@ sequenceDiagram
 
 At startup, `RequestMappingHandlerMapping` reads the `@RequestMapping`
 annotations of every controller bean into a table of path, HTTP method,
-`produces` and `consumes`. A request is looked up in that table. No match
-means 404; a path match with the wrong method means 405 Method Not
-Allowed; a match whose `produces` the client does not accept means 406.
+`produces` and `consumes`. A request is looked up in that table:
+
+- No match means 404.
+- A path match with the wrong method means 405 Method Not Allowed.
+- A match whose `produces` the client does not accept means 406.
 
 ### `@RestController` and mappings
 
@@ -145,10 +147,10 @@ and what its methods return is the response body. A plain `@Controller`
 would treat a returned `String` as the name of a view template instead.
 
 Mappings combine. `@RequestMapping(path = "/api/v1/hello")` on the class
-sets the prefix for every method; `@GetMapping` on a method with no path
+sets the prefix for every method. `@GetMapping` on a method with no path
 adds nothing, so the method answers `GET /api/v1/hello`. `@GetMapping` is
-`@RequestMapping(method = RequestMethod.GET)`; there are `@PostMapping`,
-`@PutMapping` and `@DeleteMapping` too. `produces` on the class applies to
+`@RequestMapping(method = RequestMethod.GET)`. There are also `@PostMapping`,
+`@PutMapping` and `@DeleteMapping`. `produces` on the class applies to
 all methods. The VWO puts both on the class:
 
 ```java
@@ -162,7 +164,7 @@ Two things to notice for later. The bean gets an explicit name ending in
 `.v1`, because a `v2` class with the same simple name would otherwise
 produce a second bean called `registrationFeeController` (chapter 19).
 And the second path, under `OLD_BASE_URL` (`/restapi`), keeps an old URL
-scheme alive; TechOlympiad has no old clients, so its `V1Config` has only
+scheme alive. TechOlympiad has no old clients, so its `V1Config` has only
 `BASE_URL`.
 
 ### `V1Config`
@@ -177,12 +179,13 @@ public class V1Config {
 ```
 
 A holder for constants. `static final` makes `BASE_URL` a compile-time
-constant (roughly C#'s `const`), which is required: annotation values must be constants, so
-`V1Config.BASE_URL + "/hello"` is allowed inside `@RequestMapping`, while
-a value read from a property at run time would not be. No modifier means
-*package-private*: visible only inside `controllers.v1`, which is exactly
-where the v1 controllers live. C# has no direct counterpart; `internal` is
-per assembly, this is per package.
+constant (roughly C#'s `const`). That is required, because annotation
+values must be constants. So `V1Config.BASE_URL + "/hello"` is allowed
+inside `@RequestMapping`, but a value read from a property at run time
+would not be. No modifier means *package-private*: visible only inside
+`controllers.v1`, which is exactly where the v1 controllers live. C# has
+no direct counterpart: `internal` is per assembly, and package-private is
+per package.
 
 ### Message converters, and where Jackson comes in
 
@@ -240,7 +243,7 @@ document. It is Swashbuckle for Spring.
 
 </div>
 
-springdoc 1.x is the line for Spring Boot 2 and `javax`; springdoc 2.x
+springdoc 1.x is the line for Spring Boot 2 and `javax`. springdoc 2.x
 needs Spring Boot 3. The UI itself comes as a
 <dfn data-def="A jar that contains a web front end (here the Swagger UI's HTML, CSS and JavaScript) so it can be served from the classpath.">webjar</dfn>,
 `org.webjars:swagger-ui`, which springdoc serves from the classpath.
@@ -254,7 +257,7 @@ With `springdoc.swagger-ui.path=/public/swagger-ui.html`:
 | URL under `/techolympiad` | What answers |
 |---|---|
 | `/public/swagger-ui.html` | A springdoc controller that redirects (302) to the UI page |
-| `/public/swagger-ui/index.html` | The UI, from the webjar; springdoc takes the folder from the configured path |
+| `/public/swagger-ui/index.html` | The UI, from the webjar. springdoc takes the folder from the configured path |
 | `/v3/api-docs/swagger-config` | The UI's configuration: the sort settings and the list of groups |
 | `/v3/api-docs/v1` | The OpenAPI document of group `v1` |
 
@@ -262,7 +265,7 @@ With `springdoc.swagger-ui.path=/public/swagger-ui.html`:
 
 The UI lives under `/public` because of security. In chapter 20 every
 URL needs a token except `/public/**` (and the documents under
-`/v3/api-docs/**`); a UI that requires a login before you can log in
+`/v3/api-docs/**`). A UI that requires a login before you can log in
 would be useless.
 
 ### The `OpenAPI` bean
@@ -270,16 +273,16 @@ would be useless.
 springdoc starts from an `OpenAPI` bean when one exists and adds the
 generated paths to it. The VWO's bean sets the title and the description
 from the same property, `application-description`, and a list of servers.
-It also takes `apiPomVersion`, but then shows a literal: `@Value("1")`
-feeds the version, and the `apiPomVersion` parameter is never used, so the
-VWO's Swagger page always says version 1. We use `apiPomVersion`, which is
+It also takes an `apiPomVersion` parameter, but never uses it. The
+version comes from a literal, `@Value("1")`, so the VWO's Swagger page
+always says version 1. We use `apiPomVersion`, which is
 clearly what the parameter was for. We leave out `termsOfService` and the
 license, which point at swagger.io and springdoc.org and say nothing about
 the API. The security scheme follows in chapter 20.
 
 `@OpenAPIDefinition` on the class is the annotation alternative to the
 bean. Without attributes it adds nothing, since the bean already provides
-everything; the VWO has it, so we add it.
+everything. The VWO has it, so we add it.
 
 ### Servers, and why "current" fails here
 
@@ -301,7 +304,7 @@ The paths in the document never include the context path, because the
 application never sees it ([chapter 4](build-04-tomcat.md)). `/` only works
 when the API is deployed as `ROOT` or behind a proxy that maps the root to
 it. The UI preselects the first server, so in this setup you switch to
-`/techolympiad` once; the choice sticks until you reload the page. The
+`/techolympiad` once. The choice sticks until you reload the page. The
 VWO's list works the same way: `/database` "default" is what you pick
 locally.
 
@@ -312,12 +315,12 @@ A `GroupedOpenApi` bean defines one document. `group("v1")` names it,
 matches any number of path segments). With groups, the UI shows a
 *Select a definition* list at the top, with one entry per group. The VWO
 has `v1`, `v2` and a deprecated `v1-restapi` group for the `/restapi`
-paths. We start with `v1`; chapter 19 adds `v2` with a second bean.
+paths. We start with `v1`. Chapter 19 adds `v2` with a second bean.
 
 ### `application.properties`
 
-Spring Boot reads `application.properties` from the classpath on its own;
-no `@PropertySource` is needed. We copy the VWO's springdoc lines and one
+Spring Boot reads `application.properties` from the classpath on its own.
+No `@PropertySource` is needed. We copy the VWO's springdoc lines and one
 Spring line:
 
 <div class="table-wrap">
@@ -336,7 +339,7 @@ The VWO spells one key `tagsSorter` and the other `operations-sorter`.
 Both work: Spring Boot's
 <dfn data-def="Spring Boot matching property names loosely: tagsSorter, tags-sorter and TAGS_SORTER all bind to the same setting.">relaxed binding</dfn>
 treats camel case, kebab case and underscores as the same name. Kebab
-case is the documented style; we keep the VWO's spelling so the files can
+case is the documented style, but we keep the VWO's spelling so the files can
 be compared line by line.
 
 Bean overriding has been off by default since Spring Boot 2.1. It
@@ -346,8 +349,8 @@ with a `BeanDefinitionOverrideException`. It has to be in
 `application.properties`, because `spring.main.*` is read before any
 `@PropertySource` file is loaded.
 
-The VWO file also has logging levels, JPA settings and a session timeout;
-none of them has anything to configure yet.
+The VWO file also has logging levels, JPA settings and a session timeout.
+None of them has anything to configure yet.
 
 ### `${application-description}` for now
 
@@ -357,20 +360,22 @@ with `Could not resolve placeholder 'application-description' in value "${applic
 In the VWO the key lives in the environment files (`environmentAPI.dev.properties`
 and `environmentAPI.prod.properties`), which arrive in
 [chapter 6](build-06-build-profiles.md). Until then we put it in
-`api.properties`; chapter 6 moves it.
+`api.properties`, and chapter 6 moves it.
 
 ### Lining up Jackson
 
-springdoc 1.8.0 brings `swagger-core` 2.2.20, which wants Jackson 2.16,
-including `jackson-dataformat-yaml` 2.16.0 (springdoc builds a YAML mapper
-at startup). Spring Boot's JSON starter brings Jackson 2.13.5. By nearest
-wins ([chapter 2](build-02-maven-project.md)), `jackson-databind` and
-`jackson-core` stay at 2.13.5 because they sit higher in the tree, while
-`jackson-dataformat-yaml` only appears under swagger-core and comes in at
-2.16.0. A Jackson module expects a core of its own minor version or
-newer, so that mix is asking for a `NoSuchMethodError` at startup: the
-error the JVM throws when compiled code calls a method that the version of
-the library actually loaded does not have, the counterpart of .NET's
+springdoc 1.8.0 brings `swagger-core` 2.2.20, which wants Jackson 2.16.
+That includes `jackson-dataformat-yaml` 2.16.0 (springdoc builds a YAML
+mapper at startup). Spring Boot's JSON starter brings Jackson 2.13.5.
+Nearest wins ([chapter 2](build-02-maven-project.md)) then gives a mix:
+
+- `jackson-databind` and `jackson-core` stay at 2.13.5, because they sit higher in the tree.
+- `jackson-dataformat-yaml` only appears under swagger-core, so it comes in at 2.16.0.
+
+A Jackson module expects a core of its own minor version or newer, so
+that mix is asking for a `NoSuchMethodError` at startup. The JVM throws
+that error when compiled code calls a method that the loaded version of
+the library does not have. It is the counterpart of .NET's
 `MissingMethodException`.
 
 The VWO declares `swagger-core` 2.2.30 directly. At depth 1 it beats
@@ -378,7 +383,7 @@ everything, and its own dependencies (`jackson-databind`,
 `jackson-dataformat-yaml`, `jackson-datatype-jsr310` 2.18.2) sit at depth
 2, above Spring Boot's at depth 3 and 4. The core of the Jackson family
 lines up at 2.18.2. We copy the declaration, before springdoc, as the VWO
-orders it. The VWO also lists `springdoc-openapi-webmvc-core` 1.8.0;
+orders it. The VWO also lists `springdoc-openapi-webmvc-core` 1.8.0.
 `springdoc-openapi-ui` already depends on it, so we leave that out.
 
 </div>
@@ -525,7 +530,7 @@ public class OpenApiApplication extends SpringBootServletInitializer {
 so its `@Bean` methods run when the context starts. Spring resolves each
 `@Value` parameter from the Environment before it calls the method. The
 `swagger` imports are the model classes from `swagger-core` (`io.swagger.v3.oas.models`)
-and the annotation from `swagger-annotations` (`io.swagger.v3.oas.annotations`);
+and the annotation from `swagger-annotations` (`io.swagger.v3.oas.annotations`).
 `GroupedOpenApi` is springdoc's own.
 
 `src/main/java/be/techolympiad/common/restAPI/controllers/v1/V1Config.java`:
@@ -584,11 +589,11 @@ public class HelloController {
 
 1. A component (found by the scan of `be.techolympiad.common`) whose return values are response bodies.
 2. A compile-time constant plus a literal, so it is a valid annotation value: `/api/v1/hello`.
-3. The method writes plain text; the header says so, and clients asking only for JSON get 406.
+3. The method writes plain text. The header says so, and clients asking only for JSON get 406.
 4. The heading this endpoint is listed under in the Swagger UI. The VWO names its tags in kebab case after the controller.
 5. `GET` on the class path itself.
 6. The one-line description next to the endpoint in Swagger.
-7. Written by `StringHttpMessageConverter`; Jackson is not involved.
+7. Written by `StringHttpMessageConverter`. Jackson is not involved.
 
 </div>
 
@@ -616,8 +621,8 @@ curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: application/json' http://lo
 406
 ```
 
-The mapping produces only `text/plain`, the client accepts only JSON:
-406 Not Acceptable, before the method is even called.
+The mapping produces only `text/plain`, and the client accepts only JSON.
+The result is 406 Not Acceptable, before the method is even called.
 
 Open `http://localhost:8081/techolympiad/public/swagger-ui.html`. The
 browser lands on `http://localhost:8081/techolympiad/public/swagger-ui/index.html`.
@@ -698,7 +703,7 @@ mvn dependency:tree -Dincludes=com.fasterxml.jackson.core,com.fasterxml.jackson.
 `jackson-databind`, `jackson-core`, `jackson-annotations` and
 `jackson-dataformat-yaml` all report 2.18.2, under `swagger-core`. Remove
 the `swagger-core` dependency for a moment and run it again to see
-`jackson-dataformat-yaml` at 2.16.0 next to a 2.13.5 core; then put it
+`jackson-dataformat-yaml` at 2.16.0 next to a 2.13.5 core. Then put it
 back.
 
 <div class="callout danger">
@@ -710,7 +715,7 @@ back.
 - **"No operations defined in spec!"**: springdoc found no endpoint for the group. Either `HelloController` is outside `be.techolympiad.common` (not scanned), or its path does not match `/api/v1/**`. Check the package line and `V1Config.BASE_URL`.
 - **"Failed to load API definition" with a 500, and a `NoSuchMethodError` or `NoClassDefFoundError` from `com.fasterxml.jackson` in the log**: mixed Jackson versions. Check that `swagger-core` 2.2.30 is declared and run the dependency tree above.
 - **`element value must be a constant expression`** when compiling: `BASE_URL` lost its `static final`, so it is no longer a compile-time constant.
-- **406 in your own client**: it sends `Accept: application/json` only. This endpoint produces `text/plain`; the JSON endpoints come in chapter 11.
+- **406 in your own client**: it sends `Accept: application/json` only. This endpoint produces `text/plain`. The JSON endpoints come in chapter 11.
 
 </div>
 
@@ -721,7 +726,7 @@ back.
 <ol class="quiz-options">
 <li><code>StringHttpMessageConverter</code>, calling <code>toString()</code> on the map<p class="quiz-whynot">That converter only handles <code>String</code>. Converters are chosen by the Java type and the media type.</p></li>
 <li data-correct><code>MappingJackson2HttpMessageConverter</code>, which writes <code>{"message":"Hello world"}</code><p class="quiz-why">A <code>Map</code> is not a <code>String</code> or bytes, so Jackson is the first converter that can write it as <code>application/json</code>.</p></li>
-<li>springdoc, because the endpoint is documented<p class="quiz-whynot">springdoc only describes endpoints; it is not involved in answering them.</p></li>
+<li>springdoc, because the endpoint is documented<p class="quiz-whynot">springdoc only describes endpoints. It is not involved in answering them.</p></li>
 </ol>
 <p class="quiz-explain">The same route serves every entity from chapter 9 on: the controller returns an object and Jackson turns it into JSON, guided by the entity's <code>@JsonProperty</code> annotations.</p>
 </div>
@@ -729,7 +734,7 @@ back.
 <div class="quiz" data-quiz>
 <p class="quiz-q">The Swagger UI is opened at <code>http://localhost:8081/techolympiad/...</code>. Why does the server <code>/</code> send requests to <code>http://localhost:8081/api/v1/hello</code>?</p>
 <ol class="quiz-options">
-<li>springdoc forgets the context path when it generates the paths<p class="quiz-whynot">Leaving the context path out of the paths is correct; the application never sees it. The server URL is supposed to supply it.</p></li>
+<li>springdoc forgets the context path when it generates the paths<p class="quiz-whynot">Leaving the context path out of the paths is correct, because the application never sees it. The server URL is supposed to supply it.</p></li>
 <li data-correct>A relative server URL is resolved against the document's address, and <code>/</code> resolves to the root of the host<p class="quiz-why">Like a link <code>href="/"</code> on any page of a site, it drops the whole path, context path included.</p></li>
 <li>Tomcat strips the context path from the Swagger UI's requests<p class="quiz-whynot">Tomcat strips it inside the application, after routing. The UI's request never contained it.</p></li>
 </ol>
@@ -740,7 +745,7 @@ back.
 <ol class="quiz-options">
 <li>To keep other packages from changing it<p class="quiz-whynot"><code>final</code> does prevent reassignment, but package-private visibility already keeps other packages away. The real reason is the annotation.</p></li>
 <li data-correct>Annotation values must be compile-time constants, and only a <code>static final</code> field with a constant initializer is one<p class="quiz-why">Then <code>V1Config.BASE_URL + "/hello"</code> is itself a constant expression and allowed in <code>@RequestMapping</code>.</p></li>
-<li>Spring only scans <code>static</code> fields for paths<p class="quiz-whynot">Spring reads the annotation's value; it never looks at <code>V1Config</code> itself.</p></li>
+<li>Spring only scans <code>static</code> fields for paths<p class="quiz-whynot">Spring reads the annotation's value. It never looks at <code>V1Config</code> itself.</p></li>
 </ol>
 </div>
 
@@ -750,7 +755,7 @@ back.
 <div class="card"><div class="front"><code>DispatcherServlet</code></div><div class="back">Spring MVC's single servlet at <code>/</code>: finds the handler method, calls it, writes the result.</div></div>
 <div class="card"><div class="front"><code>@RestController</code></div><div class="back"><code>@Controller</code> + <code>@ResponseBody</code>: a component whose return values are the response body.</div></div>
 <div class="card"><div class="front"><code>produces</code></div><div class="back">The media types a mapping can return. A client that accepts none of them gets 406.</div></div>
-<div class="card"><div class="front">HttpMessageConverter</div><div class="back">Writes a return value for a media type. <code>String</code>: <code>StringHttpMessageConverter</code>; objects: Jackson.</div></div>
+<div class="card"><div class="front">HttpMessageConverter</div><div class="back">Writes a return value for a media type. For a <code>String</code>: <code>StringHttpMessageConverter</code>. For objects: Jackson.</div></div>
 <div class="card"><div class="front">springdoc</div><div class="back">Generates the OpenAPI document from the handler mappings and serves the Swagger UI. 1.x for Boot 2.</div></div>
 <div class="card"><div class="front"><code>GroupedOpenApi</code></div><div class="back">One OpenAPI document (an entry in <em>Select a definition</em>), selected by paths, at <code>/v3/api-docs/{group}</code>.</div></div>
 <div class="card"><div class="front">Relaxed binding</div><div class="back"><code>tagsSorter</code>, <code>tags-sorter</code> and <code>TAGS_SORTER</code> are the same property to Spring Boot.</div></div>
@@ -762,7 +767,7 @@ back.
 <details class="qa">
 <summary>Self-check: which version does the VWO's Swagger page show, and why?</summary>
 <div class="ans">
-Always <code>1</code>. The bean's version parameter is <code>@Value("1") String appVersion</code>, a literal; the <code>apiPomVersion</code> parameter is injected but never used. TechOlympiad passes <code>apiPomVersion</code> to <code>Info.version</code>.
+Always <code>1</code>. The bean's version parameter is <code>@Value("1") String appVersion</code>, a literal. The <code>apiPomVersion</code> parameter is injected but never used. TechOlympiad passes <code>apiPomVersion</code> to <code>Info.version</code>.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

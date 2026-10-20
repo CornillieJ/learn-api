@@ -12,12 +12,15 @@ If you know EF Core, you already know 70% of Hibernate: a unit of work
 that tracks entities, a query language over objects, lazy loading,
 transactions. The surprise is *how* this repo uses it: **native
 Hibernate 5.6** (`SessionFactory`/`Session`) with hand-written DAOs, not
-Spring Data JPA, so anything you read about `JpaRepository` will not
-match. There are two `SessionFactory`s (read-write and read-only),
-chosen per method with `@Transactional`; entities can have composite
-keys via `@IdClass`; every custom query is an **HQL string**; and a
-second-level cache is configured through JCache/Ehcache, though it
-caches less than it looks like it does.
+Spring Data JPA. Anything you read about `JpaRepository` will not
+match. Other things to expect:
+
+- There are two `SessionFactory`s (read-write and read-only). Each method
+  picks one with `@Transactional`.
+- Entities can have composite keys via `@IdClass`.
+- Every custom query is an **HQL string**.
+- A second-level cache is configured through JCache/Ehcache, though it
+  caches less than it looks like it does.
 
 **After this step you can:**
 
@@ -78,8 +81,9 @@ public class Gln implements Serializable { @Id short schoolId; @Id ContestRole c
 | "Hibernate 5 Tutorial" (Java Guides) | [https://www.youtube.com/playlist?list=PLGRDMO4rOGcMrHnQoSg3pK4PpxCV6pzmO](https://www.youtube.com/playlist?list=PLGRDMO4rOGcMrHnQoSg3pK4PpxCV6pzmO) | 🔎 title + channel |
 | "Hibernate 5 Tutorials" (KK JavaTutorials) | [https://www.youtube.com/playlist?list=PLzS3AYzXBoj_o6sOu2CUnnSEk1e8Sb1op](https://www.youtube.com/playlist?list=PLzS3AYzXBoj_o6sOu2CUnnSEk1e8Sb1op) | 🔎 title + channel |
 
-Found via search and confirmed through YouTube metadata; contents and
-length not reviewed, so sample the first episodes. Take from them:
+Found via search and confirmed through YouTube metadata. Nobody
+reviewed their contents or length, so sample the first episodes. Take
+from them:
 `SessionFactory` vs `Session`, entity mapping, CRUD, relationships, and
 lazy vs eager fetching.
 
@@ -93,15 +97,15 @@ public E get(K key) { return super.get(key); }
 
 <div class="callout danger">
 <div class="callout-label">Watch out</div>
-Every entity must be registered in <code>hibernate_VWO.cfg.xml</code>;
-adding a new <code>@Entity</code> class without listing it there means
+Every entity must be registered in <code>hibernate_VWO.cfg.xml</code>.
+If you add a new <code>@Entity</code> class without listing it there,
 Hibernate never sees it.
 </div>
 
 ### 4.3 HQL (Hibernate Query Language) Tutorial with Examples (YouTube, channel realNameHidden)
 
 [https://www.youtube.com/watch?v=UoykY15IdPQ](https://www.youtube.com/watch?v=UoykY15IdPQ)
-🔎 title and channel confirmed; content itself unverified. All custom
+🔎 title and channel confirmed. The content itself is unverified. All custom
 queries in the project are HQL strings: SQL-like, but over entities and
 fields, not tables and columns.
 
@@ -128,7 +132,7 @@ Logins use the same mechanism with a DB function called from HQL:
 
 The JavaGuides article's XML-config plus `SessionFactory` approach is
 the closest written match to `hibernate_VWO.cfg.xml` and
-`LocalSessionFactoryBean`; CodeJava's JOIN and parameter examples map
+`LocalSessionFactoryBean`. CodeJava's JOIN and parameter examples map
 directly onto `ScholenDaoImpl`.
 
 ### 4.5 Mental model: `Session` is your `DbContext`
@@ -164,10 +168,10 @@ entities when you mean to persist the change.
   compiles fine and fails at runtime when the query is created. Run
   every new query once against a dev DB.
 - **Entities and fields, not tables and columns.** `FROM Scholen s`
-  names the Java class; `s.schoolId` names the Java field. The
+  names the Java class. `s.schoolId` names the Java field. The
   `@Table`/`@Column` mapping translates to SQL.
 - **Always named parameters** (`:userId` + `setParameter`). Never
-  concatenate input into the string; that's SQL injection, same as
+  concatenate input into the string. That's SQL injection, same as
   `FromSqlRaw` with interpolation.
 - `JOIN Functies f ON ...` joins two entities that have no mapped
   relationship (supported since Hibernate 5.1). The repo needs this
@@ -217,10 +221,14 @@ get `LazyInitializationException: could not initialize proxy - no
 Session`.
 
 EF Core with lazy-loading proxies would just run the query (or return
-an empty navigation without them). Hibernate refuses. Fixes, best first:
-fetch what you need inside the transaction (`JOIN FETCH`), map to a DTO
-inside the transaction, or initialise the association explicitly
-(`Hibernate.initialize(...)`). Don't count on Boot's
+an empty navigation without them). Hibernate refuses. The fixes, best
+first:
+
+1. Fetch what you need inside the transaction (`JOIN FETCH`).
+2. Map to a DTO inside the transaction.
+3. Initialise the association explicitly (`Hibernate.initialize(...)`).
+
+Don't count on Boot's
 "open session in view": it belongs to Boot's JPA auto-configuration, and
 this repo wires native Hibernate by hand in XML.
 
@@ -284,7 +292,7 @@ this repo wires native Hibernate by hand in XML.
 </div>
 
 <div class="quiz" data-quiz>
-<p class="quiz-q">A controller returns an entity; Jackson serialises it and touches a lazy <code>@OneToMany</code> collection after the DAO's transaction has ended. What do you get?</p>
+<p class="quiz-q">A controller returns an entity. Jackson serialises it and touches a lazy <code>@OneToMany</code> collection after the DAO's transaction has ended. What do you get?</p>
 <ol class="quiz-options">
 <li>An empty list</li>
 <li>A second query that loads the collection</li>
@@ -302,7 +310,7 @@ this repo wires native Hibernate by hand in XML.
 <li>The table name contains uppercase letters</li>
 <li>The second-level cache is stale</li>
 </ol>
-<p class="quiz-explain">Here entities are registered explicitly in the Hibernate config file; an unlisted class is invisible to Hibernate.</p>
+<p class="quiz-explain">Here entities are registered explicitly in the Hibernate config file. An unlisted class is invisible to Hibernate.</p>
 </div>
 
 ### Flashcards
@@ -321,10 +329,10 @@ this repo wires native Hibernate by hand in XML.
 <details class="qa">
 <summary>Self-check: why is the second-level cache "enabled but effectively caches nothing"?</summary>
 <div class="ans">
-This isn't something the resources above resolve on their own; open
-Knowledge File §9.5, which explains the specific reason for this
-project, and check your answer against it rather than guessing from
-the Hibernate caching chapter alone.
+The resources above do not answer this on their own. Open Knowledge
+File §9.5, which explains the specific reason for this project. Check
+your answer against it. Do not guess from the Hibernate caching chapter
+alone.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

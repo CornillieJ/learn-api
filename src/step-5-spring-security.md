@@ -54,17 +54,20 @@ http.sessionManagement().sessionCreationPolicy(STATELESS)
 
 [https://docs.enterprise.spring.io/spring-security/reference/5.7-SNAPSHOT/servlet/architecture.html](https://docs.enterprise.spring.io/spring-security/reference/5.7-SNAPSHOT/servlet/architecture.html)
 ✅ page shows version 5.7.24-SNAPSHOT, the 5.7 line this project uses
-through Boot 2.7. Explains `DelegatingFilterProxy` (bridges the servlet
-container and Spring's `ApplicationContext`), `FilterChainProxy` and
-`SecurityFilterChain` (which filters run for which request, chosen by
-`RequestMatcher`), and `ExceptionTranslationFilter` (turns
-`AccessDeniedException`/`AuthenticationException` into HTTP responses).
+through Boot 2.7. It explains:
+
+- `DelegatingFilterProxy`: bridges the servlet container and Spring's
+  `ApplicationContext`.
+- `FilterChainProxy` and `SecurityFilterChain`: which filters run for
+  which request, chosen by `RequestMatcher`.
+- `ExceptionTranslationFilter`: turns
+  `AccessDeniedException`/`AuthenticationException` into HTTP responses.
 
 <div class="callout danger">
 <div class="callout-label">Watch out</div>
 The stable docs URL (docs.spring.io/spring-security/reference/servlet/architecture.html)
 now documents version 6.x. The <code>5.7-SNAPSHOT</code> link above is
-a mirror that still serves the 5.7 docs this project needs; the plain
+a mirror that still serves the 5.7 docs this project needs. The plain
 <code>5.7/…</code> path on docs.spring.io returns 404.
 </div>
 
@@ -86,10 +89,10 @@ authorizing them within it:
 web.ignoring().antMatchers("/public/**", "/swagger-ui/**", "/v3/api-docs/**", "/restapi/**")
 ```
 
-The doc's chain model (`FilterChainProxy` deciding which
-`SecurityFilterChain` applies per request) is why paths matched here
-get no security filters at all, rather than a permissive one (Knowledge
-File §19.1-1).
+In the doc's chain model, `FilterChainProxy` decides per request which
+`SecurityFilterChain` applies. That is why the paths matched here get no
+security filters at all, instead of a permissive chain (Knowledge File
+§19.1-1).
 
 ### 5.2 Mental model: filter chain vs middleware
 
@@ -108,20 +111,22 @@ File §19.1-1).
 
 </div>
 
-The JWT filter is added *before* `AnonymousAuthenticationFilter`: if the
-token is valid it puts an `Authentication` into the security context;
-if not, the anonymous filter fills in an anonymous one and the
-authorisation rule for `PROTECTED_URLS` rejects the request.
+The JWT filter is added *before* `AnonymousAuthenticationFilter`:
+
+- If the token is valid, the JWT filter puts an `Authentication` into
+  the security context.
+- If not, the anonymous filter fills in an anonymous `Authentication`,
+  and the authorisation rule for `PROTECTED_URLS` rejects the request.
 
 ### 5.3 .NET gotchas
 
 <div class="callout danger">
 <div class="callout-label">Watch for these</div>
 
-- **`hasAuthority` vs `hasRole`.** `hasRole("ADMIN")` checks for the authority string `ROLE_ADMIN`; `hasAuthority("ADMIN")` checks for exactly `ADMIN`. This repo uses `hasAnyAuthority("USER", "ADMIN")`, so the JWT's authorities must be the bare strings.
+- **`hasAuthority` vs `hasRole`.** `hasRole("ADMIN")` checks for the authority string `ROLE_ADMIN`. `hasAuthority("ADMIN")` checks for exactly `ADMIN`. This repo uses `hasAnyAuthority("USER", "ADMIN")`, so the JWT's authorities must be the bare strings.
 - **`web.ignoring()` is not `permitAll()`.** Ignored paths skip the whole chain: no security context, no security headers, no CSRF or CORS handling from Spring Security. `permitAll()` runs the chain and then allows the request.
 - **Thread-bound context.** `SecurityContextHolder` uses a `ThreadLocal` by default. Code that hops to another thread (`@Async`, a `CompletableFuture` pool) doesn't see the user unless you propagate it.
-- **`WebSecurityConfigurerAdapter` is deprecated in 5.7** and removed in Spring Security 6. `SecurityConfig` still uses the adapter style; tutorials that declare a `SecurityFilterChain` `@Bean` show the newer style and the future migration target.
+- **`WebSecurityConfigurerAdapter` is deprecated in 5.7** and removed in Spring Security 6. `SecurityConfig` still uses the adapter style. Tutorials that declare a `SecurityFilterChain` `@Bean` show the newer style, which is also the future migration target.
 
 </div>
 
@@ -130,10 +135,9 @@ authorisation rule for `PROTECTED_URLS` rejects the request.
 No verified resource was found for jjwt 0.9 specifically. Read
 `security/jwt/JWTTokenService.java` with Knowledge File §10 open, and
 try the `curl` example in §10.1 against a dev instance. Be aware that
-jjwt changed a lot after 0.9 (the library was split into
-`jjwt-api`/`jjwt-impl` modules in 0.10 and the parser API changed again
-in 0.11 and 0.12), so newer blog posts often won't compile against this
-code.
+jjwt changed a lot after 0.9. Version 0.10 split the library into
+`jjwt-api`/`jjwt-impl` modules, and the parser API changed again in 0.11
+and 0.12. So newer blog posts often won't compile against this code.
 
 </div>
 
@@ -232,9 +236,9 @@ a path that is matched and then allowed by an authorization rule.
 <div class="ans">
 The anonymous filter only sets an anonymous <code>Authentication</code>
 if nothing has authenticated the request yet. Running the JWT filter
-first gives a valid token the chance to set the real user; without a
-token the request falls through to anonymous and is rejected by the
-<code>PROTECTED_URLS</code> rule.
+first gives a valid token the chance to set the real user. Without a
+token, the request falls through to anonymous, and the
+<code>PROTECTED_URLS</code> rule rejects it.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

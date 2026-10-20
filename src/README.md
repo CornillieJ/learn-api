@@ -40,7 +40,7 @@ its **Drilling** level and it lights up here and in the sidebar.
 ## How each step is built
 
 Every Step has three levels. Pick one with the tabs at the top of the
-page; your choice follows you from chapter to chapter.
+page. Your choice stays the same when you move to another chapter.
 
 <div class="table-wrap">
 
@@ -59,7 +59,7 @@ reviewed, ⚠️ could not be read.
 ## The widgets, in one line each
 
 - **Code compare**: C# on one side, the Java you will meet on the other.
-- **Quiz**: pick an answer; the explanation tells you *why*.
+- **Quiz**: pick an answer. The explanation tells you *why*.
 - **Flashcards**: click to flip. Great for the ten minutes before a
   stand-up.
 - **Self-checks**: answer in your head, open to compare, then

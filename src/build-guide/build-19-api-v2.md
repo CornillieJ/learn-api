@@ -218,16 +218,21 @@ It does not apply to component scanning. The scanner checks every
 candidate against the registry itself and throws
 `ConflictingBeanDefinitionException` for a different class under a taken
 name, whatever the flag says. So the flag cannot rescue two
-`FunctionController`s; only distinct names can.
+`FunctionController`s. Only distinct names can.
 
-The VWO probably needs the flag for another reason. Its
-`security/Application.java` is a second `@SpringBootApplication` inside
-the scanned package, so the main context also picks it up as a
-configuration class, and its `@ImportResource("classpath:applicationContextAPI.xml")`
-loads the XML a second time. Every XML bean is then registered twice
-under the same id, which is precisely what the flag permits. TechOlympiad
-has no such class, so the flag is harmless here. Be aware that it would
-also hide a genuine duplicate: the second bean wins, without a word.
+The VWO probably needs the flag for another reason:
+
+1. Its `security/Application.java` is a second `@SpringBootApplication`
+   inside the scanned package.
+2. So the main context also picks it up as a configuration class.
+3. Its `@ImportResource("classpath:applicationContextAPI.xml")` then
+   loads the XML a second time.
+4. Every XML bean is registered twice under the same id. The flag
+   permits exactly this.
+
+TechOlympiad has no such class, so the flag is harmless here. Be aware
+that it would also hide a genuine duplicate: the second bean wins,
+without a word.
 
 ### A Swagger group per version
 
@@ -247,7 +252,7 @@ Each group is served at `/v3/api-docs/{group}`, and the Swagger UI shows
 a *Select a definition* drop-down with one entry per group. The VWO has
 three: `v1`, `v2`, and a `v1-restapi` group for `/restapi/**` whose bean
 method is marked `@Deprecated`. That annotation is a note to Java
-readers; springdoc still builds the group.
+readers. springdoc still builds the group.
 
 Tags (`@Tag(name = "function-controller")`) are per document, so the
 same tag name in `v1` and `v2` gives one section in each group, which is
@@ -268,11 +273,11 @@ Three annotations, three audiences:
 </div>
 
 A client never sees a Java annotation. Hiding or deprecating an endpoint
-only changes what new clients learn from the docs; to stop old clients,
+only changes what new clients learn from the docs. To stop old clients,
 the endpoint has to answer differently, as the `410` above does. The VWO
-combines both on `SchoolController.create`: `@Deprecated` and `@Hidden`
-on the interface method, so it is gone from Swagger in every version yet
-still works for whoever already calls it.
+puts both `@Deprecated` and `@Hidden` on the interface method
+`SchoolController.create`. So the endpoint is gone from Swagger in every
+version, but it still works for clients that already call it.
 
 <div class="callout note">
 <div class="callout-label">The <code>/restapi</code> root</div>
@@ -294,10 +299,11 @@ ASP.NET Core usually versions with the `Asp.Versioning` package:
 controllers called `FunctionController` in namespaces `V1` and `V2` are
 no problem there, because the DI container registers types, not names.
 Spring's container is keyed by bean name, which is why the collision
-above exists at all. The Java way to share endpoints between versions,
-`default` methods on an interface, is close to a C# interface with
-default implementations, which ASP.NET Core does not use for routing;
-there a shared abstract base controller plays that role.
+above exists at all. Java shares endpoints between versions through
+`default` methods on an interface. That is close to a C# interface with
+default implementations, but ASP.NET Core does not use those for
+routing. In ASP.NET Core, a shared abstract base controller plays that
+role.
 
 </div>
 
@@ -330,8 +336,8 @@ public class V2Config {
 ```
 
 `BASE_URL` is package-private, like the VWO's, so only classes in `v2`
-can use it, and a `v2` class cannot pick up `V1Config.BASE_URL` by
-accident: that constant is package-private to `v1`.
+can use it. The same holds for `V1Config.BASE_URL` in `v1`, so a `v2`
+class cannot use the `v1` constant by accident.
 
 If `mvn dependency:tree -Dincludes=org.apache.commons:commons-lang3`
 shows nothing, add the dependency the spec copies from the VWO:
@@ -375,8 +381,9 @@ public class SchoolController implements be.techolympiad.common.restAPI.controll
 ```
 
 The class has the interface's simple name, so `implements` spells the
-interface out in full. Its bean name is `schoolController`; `v1`'s class
-is `ScholenController`, bean `scholenController`, so the two do not meet.
+interface out in full. Its bean name is `schoolController`. The `v1`
+class is `ScholenController`, with the bean name `scholenController`, so
+the two names do not collide.
 Use the same `@Tag` name as your `v1` class.
 
 `restAPI/controllers/v2/FunctionController.java`
@@ -459,7 +466,7 @@ public class FunctionController implements be.techolympiad.common.restAPI.contro
 2. Local to this class: `v1`'s inherited `delete` still answers `204`.
 3. The `@DeleteMapping(consumes = JSON)` and `@ResponseStatus(NO_CONTENT)` of the interface method still apply, so `DELETE /api/v2/function` is still mapped. Only the body changes.
 4. Removes the operation from the `v2` document. The interface's `@Operation(summary = ...)` is not consulted because this one is found first.
-5. No `@RequestBody` here; the one on the interface parameter is inherited, so a body is still read (and required) before the method throws.
+5. No `@RequestBody` here. The one on the interface parameter is inherited, so a body is still read (and required) before the method throws.
 6. A method that exists only in `v2`. Its path is combined with the class's `/api/v2/function`.
 7. The two `short`s are boxed to the `Short` fields of `FunctiesPK`'s all-arguments constructor. `{function}` goes through `ToRoleConverter`, so `sto` works.
 

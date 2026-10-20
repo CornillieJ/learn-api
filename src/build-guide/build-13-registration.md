@@ -10,17 +10,20 @@
 
 Every contest year begins with a registration: school 3 takes part in the
 JTO in 2027, on paper or digitally. The VWO API keeps that in
-`Wedstrijdinfo_vwo` and exposes it through `VwoParticipationController`;
+`Wedstrijdinfo_vwo` and exposes it through `VwoParticipationController`.
 TechOlympiad has `Wedstrijdinfo_to` and a `ToParticipationController`
 with the same shape. Next to it sits the fee per edition,
 `Inschrijvingsgeld`, read by a one-endpoint `RegistrationFeeController`.
 
-This is the first chapter that writes data on purpose. The request
-arrives as JSON, is checked with
-<dfn data-def="The javax.validation standard (Bean Validation 2.0, implemented by Hibernate Validator): constraint annotations such as @NotNull on fields, checked by a Validator. Spring runs it for parameters marked @Valid.">bean validation</dfn>,
-gets the current school year filled in when the caller left it out, and
-goes to the database through the read-write session factory. On the way
-we look at the five Hibernate methods that write an entity and why they
+This is the first chapter that writes data on purpose. A registration
+request goes through these steps:
+
+1. It arrives as JSON.
+2. <dfn data-def="The javax.validation standard (Bean Validation 2.0, implemented by Hibernate Validator): constraint annotations such as @NotNull on fields, checked by a Validator. Spring runs it for parameters marked @Valid.">Bean validation</dfn> checks it.
+3. The API fills in the current school year when the caller left it out.
+4. It goes to the database through the read-write session factory.
+
+On the way we look at the five Hibernate methods that write an entity and why they
 are not interchangeable.
 
 **After this chapter you can:**
@@ -75,10 +78,10 @@ record ParticipationInfo(
 The structure is the VWO's: a record nested in the controller interface
 carries the body, and a missing `year` becomes the current school year.
 The difference is in how fields are checked. The VWO relies on Jackson's
-`required = true`, which only notices a field that is absent; an explicit
-`"schoolId": null` still arrives as school `0` in its primitive `short`.
-Ours has wrapper types with `@NotNull`, and `@Valid` rejects both cases
-with a `400`.
+`required = true`, which only notices a field that is absent. An explicit
+`"schoolId": null` still arrives as school `0`, because the VWO field is
+a primitive `short`. Ours has wrapper types with `@NotNull`, and `@Valid`
+rejects both cases (absent and `null`) with a `400`.
 
 </div>
 
@@ -101,7 +104,7 @@ public static Short getCurrentSchoolYear() {
 }
 ```
 
-On 31 August 2027 it returns `2027`; on 1 September 2027 it returns
+On 31 August 2027 it returns `2027`. On 1 September 2027 it returns
 `2028`. We copy it unchanged. A few things about `java.time`, the date
 API since Java 8, make it read the way it does:
 
@@ -138,11 +141,11 @@ default calls return empty lists, and you pass `year=2027` explicitly.
 `@RequestBody` tells Spring to read the HTTP body and turn it into the
 parameter's type. Spring asks its list of
 <dfn data-def="Spring MVC objects that read a request body into a Java object and write a return value into the response body. MappingJackson2HttpMessageConverter handles JSON.">HttpMessageConverters</dfn>
-for one that can read `application/json` into a `ParticipationInfo`;
+for one that can read `application/json` into a `ParticipationInfo`.
 Jackson's converter wins. Jackson 2.12 and later construct a record
-through its canonical constructor (the generated constructor that takes
-every component in declaration order), matching JSON fields to component
-names, so the body is:
+through its canonical constructor: the generated constructor that takes
+every component in declaration order. Jackson matches JSON fields to
+component names, so the body is:
 
 ```json
 { "year": 2027, "schoolId": 3, "edition": "STO", "digitalParticipation": true }
@@ -193,14 +196,14 @@ Spring Boot 2.7 defaults `server.error.include-binding-errors` to
 `never`.
 
 On a record, a constraint written on a component ends up on the
-generated field, which is where Hibernate Validator looks, so
+generated field. Hibernate Validator looks at that field, so
 `@NotNull Short schoolId` works as it would on a class. Two things to
 keep straight:
 
 - `@NotNull` on a primitive is pointless: a `short` is never `null`.
-- `@NotNull` next to `@RequestBody` only rejects a missing body (Spring
-  already does that, as `required = true` is the default); the fields are
-  checked because of `@Valid`.
+- `@NotNull` next to `@RequestBody` only rejects a missing body, and
+  Spring already does that because `required = true` is the default. The
+  fields are checked because of `@Valid`.
 
 The VWO does not use bean validation in its controllers. Its records
 mark fields `@JsonProperty(required = true)`, which puts them in the
@@ -252,19 +255,20 @@ public E save(E entity) {
 and `AbstractDaoImpl.save` uses `getFactoryRW().getCurrentSession()`.
 The two must agree. `@Transactional(value = transactionRW)` makes the
 `transactionToRW` manager open a transaction and bind a session of the
-`toRW` factory to the thread; `getFactoryRW().getCurrentSession()` asks
+`toRW` factory to the thread. `getFactoryRW().getCurrentSession()` asks
 for exactly that session. Mixing them fails in one of two ways:
 
 - A write through `getFactoryR()` reaches MariaDB as `to_read` and is
   refused: `INSERT command denied to user 'to_read'@'...' for table 'Wedstrijdinfo_to'`.
 - A write in a method marked `@Transactional(value = transactionR, readOnly = true)`
-  may not reach the database at all. Spring sets the Hibernate flush mode
-  (when the session sends pending changes to the database) of a read-only
-  transaction to `MANUAL`, so changes to managed entities
-  are never flushed, and you get a `200` for a write that did not happen.
+  may not reach the database at all. The Hibernate flush mode decides
+  when the session sends pending changes to the database. In a read-only
+  transaction, Spring sets it to `MANUAL`. Changes to managed entities
+  are then never flushed, and you get a `200` for a write that did not
+  happen.
 
 The VWO keeps the rule simple: every method that writes carries
-`@Transactional(value = transactionRW)` and uses `getFactoryRW()`; every
+`@Transactional(value = transactionRW)` and uses `getFactoryRW()`. Every
 read uses the R pair. When you add a DAO method, decide first which one
 it is.
 
@@ -312,9 +316,10 @@ methods, like the VWO's `WedstrijdinfoVwoRepositoryImpl`:
   is what the VWO controller does too.
 
 `saveOrUpdate` needs to know whether the object is new. For a generated
-key it looks at the id (`null` means new). For an assigned key without a
-version column (a JPA `@Version` field used for optimistic locking, like
-a concurrency token in EF Core) it cannot tell, so it runs a `SELECT` on the key and
+key it looks at the id (`null` means new). For an assigned key it cannot
+tell, unless the entity has a version column. A version column is a JPA
+`@Version` field used for optimistic locking, like a concurrency token
+in EF Core. Without one, `saveOrUpdate` runs a `SELECT` on the key and
 decides from the result:
 
 ```mermaid
@@ -342,7 +347,7 @@ in [chapter 12](build-12-responsables.md) did the same. The DAO's own
 <div class="callout-label">The VWO's <code>merge</code> returns the wrong object</div>
 
 `AbstractDaoImpl.merge` in the VWO calls `session.merge(entity)` and
-returns `entity`, the argument. `merge` never attaches its argument; it
+returns `entity`, the argument. `merge` never attaches its argument. It
 returns a different, managed instance. Changes you make to the returned
 object afterwards are therefore not tracked. If you ever use `merge`,
 return what `session.merge` returns.
@@ -358,14 +363,15 @@ a default key, `Modified` otherwise).
 
 `BEDRAG decimal(4,2)` holds amounts up to `99.99`. In Java a SQL
 `DECIMAL` maps to `java.math.BigDecimal`, the counterpart of C#'s
-`decimal`, and `@Column(precision = 4, scale = 2)` describes it
-(precision is the total number of digits, scale the digits after the
-point; the VWO writes `precision = 2`, which only matters if Hibernate
-generated the schema, and it does not). The VWO's repository then
-returns `getBedrag().floatValue()`, and the controller sends a `Float`.
-For amounts with two decimals Jackson prints the short form (`12.5`), so
-the JSON looks right, but a `float` cannot hold most decimal fractions
-exactly. We keep the VWO's `Float` response to stay compatible and note
+`decimal`, and `@Column(precision = 4, scale = 2)` describes it.
+Precision is the total number of digits, and scale is the number of
+digits after the point. The VWO writes `precision = 2`. That value only
+matters if Hibernate generated the schema, and it does not.
+
+The VWO's repository returns `getBedrag().floatValue()`, and the
+controller sends a `Float`. For amounts with two decimals Jackson prints
+the short form (`12.5`), so the JSON looks right. But a `float` cannot
+hold most decimal fractions exactly. We keep the VWO's `Float` response to stay compatible and note
 that `BigDecimal` would be the cleaner contract.
 
 </div>
@@ -421,7 +427,7 @@ public final class General {
 ```
 
 The casts are needed because `getYear()` returns an `int` and Java never
-narrows implicitly; `(short) now.getYear()` then autoboxes to `Short`.
+narrows implicitly. `(short) now.getYear()` then autoboxes to `Short`.
 
 ### Entities
 
@@ -523,7 +529,7 @@ public class WedstrijdinfoTo implements Serializable {
 ```
 
 `@JsonAlias` lets a client also send the Dutch name (`"jaar": 2027`) in a
-body; responses always use the `@JsonProperty` name. The VWO adds the
+body. Responses always use the `@JsonProperty` name. The VWO adds the
 aliases on this entity, so we do too. `DIGITALE_DEELNAME tinyint(1)` maps
 to `boolean` without help: the MariaDB driver reads `tinyint(1)` as a
 boolean.

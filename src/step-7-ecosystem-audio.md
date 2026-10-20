@@ -29,15 +29,16 @@ Think of it as the .NET Framework → .NET Core conversation, Java edition.
 
 [https://springofficehours.io/](https://springofficehours.io/)
 ✅ weekly deep dive on Spring Framework/Boot, hosted by Dan Vega and
-DaShaun Carter, with new episodes on Mondays; 140+ episodes averaging
-about an hour, available on Apple Podcasts, Spotify, YouTube, and
-Amazon Music.
+DaShaun Carter, with new episodes on Mondays. There are 140+ episodes
+of about an hour each, available on Apple Podcasts, Spotify, YouTube,
+and Amazon Music.
 
-Current episodes cover Boot 4/Spring 7, newer than this project's
-Boot 2.7/Spring 5.3, which is exactly why it's useful: listen for
-migration talk, since this codebase will eventually need Boot 3+
-(`javax` to `jakarta`, removing `WebSecurityConfigurerAdapter` in
-`security/SecurityConfig.java`, Hibernate 6).
+Current episodes cover Boot 4/Spring 7, which is newer than this
+project's Boot 2.7/Spring 5.3. That gap is exactly why the podcast is
+useful. This codebase will eventually need Boot 3+, so listen for
+migration talk: `javax` to `jakarta`, removing
+`WebSecurityConfigurerAdapter` in `security/SecurityConfig.java`, and
+Hibernate 6.
 
 ### 7.2 Top 12 Podcasts for Java Developers in 2024 (JetBrains blog)
 
@@ -108,7 +109,7 @@ the same generation as this repo.
 <li>It will compile unchanged against <code>SecurityConfig.java</code></li>
 <li>It is for Spring WebFlux only</li>
 </ol>
-<p class="quiz-explain">The adapter was deprecated in 5.7 and removed in 6. Concepts carry over; code needs adapting to this repo's adapter style.</p>
+<p class="quiz-explain">The adapter was deprecated in 5.7 and removed in 6. The concepts carry over. The code needs adapting to this repo's adapter style.</p>
 </div>
 
 <div class="quiz" data-quiz>
@@ -138,10 +139,12 @@ the same generation as this repo.
 <details class="qa">
 <summary>Self-check: name the four areas of this repo a Boot 3 migration would force you to change.</summary>
 <div class="ans">
-<code>javax.*</code> imports (to <code>jakarta.*</code>); the servlet container
-(Tomcat 9 to a Jakarta-era Tomcat); <code>security/SecurityConfig.java</code>
-(no more <code>WebSecurityConfigurerAdapter</code>/<code>antMatchers</code>);
-and the Hibernate layer (5.6 to 6.x: DAOs, HQL, config).
+<ol>
+<li><code>javax.*</code> imports (to <code>jakarta.*</code>).</li>
+<li>The servlet container (Tomcat 9 to a Jakarta-era Tomcat).</li>
+<li><code>security/SecurityConfig.java</code> (no more <code>WebSecurityConfigurerAdapter</code>/<code>antMatchers</code>).</li>
+<li>The Hibernate layer (5.6 to 6.x: DAOs, HQL, config).</li>
+</ol>
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>
@@ -149,10 +152,10 @@ and the Hibernate layer (5.6 to 6.x: DAOs, HQL, config).
 <details class="qa">
 <summary>Self-check: why is a Boot 4 podcast useful for a Boot 2.7 codebase?</summary>
 <div class="ans">
-Because the gap is the work ahead. Hearing practitioners talk about the
-jakarta move, the security DSL and Hibernate 6 gives you the vocabulary
-and the pitfalls before you face the migration, and explains why this
-code looks old-fashioned in places.
+Because the gap is the work ahead. Practitioners on the podcast talk
+about the jakarta move, the security DSL and Hibernate 6. You learn the
+vocabulary and the pitfalls before you face the migration. You also
+learn why this code looks old-fashioned in places.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

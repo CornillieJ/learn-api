@@ -17,10 +17,13 @@ The VWO API has no migrations and no code that creates tables. The schema
 lives in the MariaDB server, and the API assumes it is there. To work on
 the API locally, the VWO setup in `~/Coding/vwo-local-db` starts a
 MariaDB container and fills it from SQL dumps the first time it starts.
-TechOlympiad does the same thing on a small scale: `01-schema.sql` creates
-every table of the [design](design.md), `02-users.sql` creates a read
-user and a write user, and `03-seed.sql` loads fictional schools,
-teachers and pupils. Wiping the database and rebuilding it from those
+TechOlympiad does the same thing on a small scale, with three files:
+
+- `01-schema.sql` creates every table of the [design](design.md).
+- `02-users.sql` creates a read user and a write user.
+- `03-seed.sql` loads fictional schools, teachers and pupils.
+
+Wiping the database and rebuilding it from those
 files takes one command and about ten seconds.
 
 The schema is complete from this chapter on, including tables no Java
@@ -197,8 +200,9 @@ Four consequences follow, and each one will bite you once:
 
 1. **The scripts run once per volume.** Editing `03-seed.sql` and running
    `docker compose restart db` does nothing. To apply a change, remove the
-   volume with `docker compose down -v` and start again. This is the VWO
-   README's "wipe; next `up` rebuilds everything" for exactly this reason.
+   volume with `docker compose down -v` and start again. The VWO README
+   gives the same advice for the same reason: "wipe; next `up` rebuilds
+   everything".
 2. **The order is the file name.** The numeric prefixes are there to make
    alphabetical order the right order: the schema before the users and
    the users before the data.
@@ -227,7 +231,7 @@ colleague never had it.
 `depends_on: db` on its own only waits for the database container to be
 *started*. During the first start that is far too early: the entrypoint
 is still running the init scripts on a temporary server that accepts no
-network connections. Tomcat would deploy the WAR, Hibernate would try to
+network connections. Tomcat would deploy the WAR, and Hibernate would try to
 connect to `db:3306` and fail.
 
 The image ships a script, `healthcheck.sh`, for exactly this check:
@@ -300,7 +304,7 @@ carry the domain rules. `Wedstrijdinfo_to` is keyed on
 year, and the database itself refuses a second registration. `Functies`
 is keyed on all three of its columns: a teacher can be the responsable of
 several schools and editions, but each combination exists once. In the
-VWO this is only a unique index (the table has no primary key); the
+VWO this is only a unique index (the table has no primary key). The
 [design](design.md) explains why we promote it.
 
 `Functies` is also the only table with foreign keys, as in the VWO. The
@@ -322,8 +326,8 @@ results can sit in one row.
 
 A view runs with the rights of the user that created it, its `DEFINER`.
 Ours are created by `root` during initialisation, and `root` exists in
-every TechOlympiad container. Production VWO views name definers such as
-staff accounts that do not exist on your machine, which is why
+every TechOlympiad container. Production VWO views name definers, such as
+staff accounts, that do not exist on your machine. That is why
 `vwo-local-db/initdb/01-load-vwo.sh` strips every `DEFINER=` clause from
 the dump with `sed` before loading it.
 
@@ -364,11 +368,17 @@ database refuse a write.
 
 ### The seed data
 
-`03-seed.sql` loads just enough to exercise every chapter: four schools,
-five teachers, who is responsable where, the 2027 registrations, the
-registration fee per edition, answer keys and cut-offs for both rounds,
-the three contest dates of 2027, nine round 1 pupils without results, and
-four pupils of 2026 in the history table. All of it is invented: the
+`03-seed.sql` loads just enough to exercise every chapter:
+
+- four schools and five teachers
+- who is responsable where
+- the 2027 registrations and the registration fee per edition
+- answer keys and cut-offs for both rounds
+- the three contest dates of 2027
+- nine round 1 pupils without results
+- four pupils of 2026 in the history table
+
+All of it is invented: the
 school names, streets and people do not exist, and the e-mail addresses
 use the reserved `.example` domain. Never copy rows from a VWO dump into
 TechOlympiad.
@@ -741,8 +751,8 @@ SHOW GRANTS FOR 'to_read'@'%';
 `SHOW FULL TABLES` lists twelve `BASE TABLE`s and one `VIEW`.
 `Scholen` holds the four schools. The answer keys come back as four
 30-letter strings, one per edition and round. `mysql.user` shows `root`
-twice, the two TechOlympiad users, and three `healthcheck` rows, the user
-the healthcheck script logs in with.
+twice, the two TechOlympiad users, and three `healthcheck` rows.
+`healthcheck` is the user the healthcheck script logs in with.
 
 Now log in as the read user. The fill-in below lets you try both users
 with the same command:
@@ -780,7 +790,7 @@ docker compose up -d
 ```
 
 On a fresh volume you see `Waiting` next to the database for a few
-seconds before it turns `Healthy`; only then does Compose start the
+seconds before it turns `Healthy`. Only then does Compose start the
 Tomcat container.
 
 <div class="callout danger">
@@ -791,7 +801,7 @@ Tomcat container.
 - **The container exits right after starting** (`docker compose ps -a` shows `Exited (1)`): an init script failed. `docker compose logs db` ends with the failing statement and the MariaDB error. Fix the file, then `docker compose down -v` before the next `up`, or the half-built volume stays.
 - **`ERROR 1046 (3D000): No database selected`** in the init log: a script without `USE TechOlympiad;` at the top.
 - **`Access denied for user 'root'@'localhost'`** after changing `MARIADB_ROOT_PASSWORD`: the password lives in the volume and was set on the first start. Use the old one, or `down -v`.
-- **`dependency failed to start: container techolympiad-db is unhealthy`**: the database did not become healthy within 20 checks. Read `docker compose logs db`; on a slow machine, raise `retries`.
+- **`dependency failed to start: container techolympiad-db is unhealthy`**: the database did not become healthy within 20 checks. Read `docker compose logs db`. On a slow machine, raise `retries`.
 
 </div>
 
@@ -811,7 +821,7 @@ Tomcat container.
 <p class="quiz-q">Which address does the API in the Tomcat container use to reach MariaDB?</p>
 <ol class="quiz-options">
 <li><code>localhost:3308</code><p class="quiz-whynot">Inside the Tomcat container, <code>localhost</code> is the Tomcat container itself. 3308 is the port published on your machine.</p></li>
-<li><code>techolympiad-db:3308</code><p class="quiz-whynot">The container listens on 3306; the 3308 mapping exists only on the host's loopback address.</p></li>
+<li><code>techolympiad-db:3308</code><p class="quiz-whynot">The container listens on 3306. The 3308 mapping exists only on the host's loopback address.</p></li>
 <li data-correct><code>db:3306</code><p class="quiz-why">Compose's network resolves the service name <code>db</code>, and inside the network the server listens on its own port, 3306.</p></li>
 </ol>
 <p class="quiz-explain">The <code>ports</code> entry is a door from your machine into the network. Containers on the same network talk to each other directly, by service name and container port.</p>

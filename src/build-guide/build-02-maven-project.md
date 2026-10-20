@@ -84,10 +84,10 @@ chapters add to it whenever a feature needs a new library.
 <dfn data-def="Project Object Model: the pom.xml file that describes a Maven project, its dependencies and its build.">POM</dfn>
 stands for Project Object Model. Where a .NET project spreads this over a
 `.csproj`, `Directory.Build.props` and `NuGet.config`, Maven keeps it in
-one XML file. Maven never sees your `pom.xml` alone: it merges it with a
+one XML file. Maven never builds from your `pom.xml` alone. It merges it with a
 built-in <dfn data-def="The POM every Maven project inherits from implicitly. It sets the default folder layout (src/main/java, target/...) and default plugin versions.">super POM</dfn>
-and with any parent you declare, and builds with the result, the
-*effective POM*. `mvn help:effective-pom` prints it. Most of what Maven
+and with any parent you declare. The result is the *effective POM*, and
+Maven builds with that. `mvn help:effective-pom` prints it. Most of what Maven
 "just knows", such as `src/main/java` holding the sources and `target/`
 holding the output, comes from the super POM.
 
@@ -96,7 +96,7 @@ holding the output, comes from the super POM.
 | Maven | .NET | Notes |
 |---|---|---|
 | `pom.xml` | `.csproj` | One per module |
-| `groupId:artifactId:version` | `PackageId` + `Version` | NuGet has no group; Maven ids are namespaced |
+| `groupId:artifactId:version` | `PackageId` + `Version` | NuGet has no group. Maven ids are namespaced |
 | `<dependency>` | `<PackageReference>` | Transitive in both |
 | `<dependencyManagement>` with a BOM | Central Package Management (`Directory.Packages.props`) | Pins versions without adding a dependency |
 | plugin | MSBuild task or target | Maven itself only runs plugins |
@@ -112,8 +112,8 @@ Every artifact in the Maven world has a
 
 - **groupId**: the organisation or project, written like a reversed domain. `org.springframework.boot`, `be.techolympiad`.
 - **artifactId**: the module name. `spring-boot-starter-web`, `techolympiadAPI`.
-- **version**: `2.7.18`, `0.1.0`. A version ending in `-SNAPSHOT` means "still changing"; Maven may download a newer build of the same snapshot version. A plain version is final.
-- **packaging**: what the build produces. `jar` is the default; ours is `war`.
+- **version**: `2.7.18`, `0.1.0`. A version ending in `-SNAPSHOT` means "still changing". Maven may download a newer build of the same snapshot version. A plain version is final.
+- **packaging**: what the build produces. `jar` is the default. Ours is `war`.
 
 The coordinate is also the path in the repository. `org.springframework.boot:spring-boot-starter-web:2.7.18`
 lives at `~/.m2/repository/org/springframework/boot/spring-boot-starter-web/2.7.18/`,
@@ -123,10 +123,12 @@ how Maven finds the transitive dependencies.
 The VWO writes `artifactId` `restAPI` and inherits `groupId` `be.vwo` from
 its parent. It sets `<finalName>restAPI</finalName>`, so the file is
 `restAPI.war` instead of Maven's default `restAPI-1.11a.war`. We do the
-same with `techolympiadAPI`. The file name matters: the VWO `ant.xml`
-uploads `${project.artifactId}.${project.packaging}`, which only exists
-because the final name equals the artifact id, and in [chapter 4](build-04-tomcat.md)
-the name of the WAR inside Tomcat becomes the URL.
+same with `techolympiadAPI`. The file name matters for two reasons:
+
+1. The VWO `ant.xml` uploads `${project.artifactId}.${project.packaging}`.
+   That file only exists because the final name equals the artifact id.
+2. In [chapter 4](build-04-tomcat.md), the name of the WAR inside Tomcat
+   becomes the URL.
 
 <div class="callout note">
 <div class="callout-label">Why no parent</div>
@@ -190,16 +192,16 @@ such as `generate-sources` and `prepare-package`. For a `war` project:
 |---|---|---|
 | `process-resources` | `resources:resources` | Copies `src/main/resources/*` to `target/classes/` |
 | `compile` | `compiler:compile` | Compiles `src/main/java` into `target/classes/` |
-| `test` | `surefire:test` | Runs the unit tests; neither project has any |
+| `test` | `surefire:test` | Runs the unit tests. Neither project has any |
 | `package` | `war:war` | Assembles `target/techolympiadAPI/` and zips it into `target/techolympiadAPI.war` |
 | `install` | `install:install` | Copies the WAR into `~/.m2/repository/be/techolympiad/...` for other local projects |
-| `deploy` | `deploy:deploy` | Uploads to a remote Maven repository; neither project does this |
+| `deploy` | `deploy:deploy` | Uploads to a remote Maven repository. Neither project does this |
 
 </div>
 
 `clean` belongs to a separate lifecycle, so `mvn clean package` runs two
 lifecycles in a row: delete `target/`, then build up to `package`. The
-VWO pipeline always cleans; locally you clean when something stale is
+VWO pipeline always cleans. Locally you clean when something stale is
 suspected. [Chapter 6](build-06-build-profiles.md) binds extra plugin
 goals to `initialize` and `compile`, which is how the VWO picks its
 environment file.
@@ -224,18 +226,19 @@ pair: with `release`, using a method that only exists in Java 21 is a
 compile error even when you build on a Java 21 JDK.
 
 `-proc:full` switches annotation processing on explicitly. Annotation
-processors are compiler plugins found on the classpath; Lombok is one. The
+processors are compiler plugins found on the classpath, and Lombok is one. The
 <dfn data-def="The list of jars and folders the compiler or the JVM loads classes from, roughly the set of referenced assemblies of a .NET project.">classpath</dfn>
 is the list of jars and folders that `javac` or the JVM loads classes from,
 roughly the set of assemblies a .NET project references. Maven builds it
 from your dependencies.
-Newer JDKs no longer run processors they merely find on the classpath, so
-without this flag Lombok would silently stop generating getters on a
-future JDK. On Java 17 it changes nothing, which is exactly the point:
-the build behaves the same on every JDK. `<showDeprecation>true</showDeprecation>`
-makes `javac` name every deprecated API you call instead of printing one
-summary line; it will speak up in chapter 20,
-where Spring Security's `WebSecurityConfigurerAdapter` is deprecated.
+Newer JDKs no longer run processors they merely find on the classpath.
+Without this flag, Lombok would silently stop generating getters on a
+future JDK. On Java 17 the flag changes nothing, which is exactly the point:
+the build behaves the same on every JDK.
+
+`<showDeprecation>true</showDeprecation>` makes `javac` name every
+deprecated API you call instead of printing one summary line. It will
+speak up in chapter 20, where Spring Security's `WebSecurityConfigurerAdapter` is deprecated.
 
 ### Dependencies and scopes
 
@@ -278,7 +281,7 @@ Two libraries may want different versions of the same artifact. Maven
 picks one with <dfn data-def="Maven's rule for picking one version: the declaration closest to your pom in the dependency tree wins; on equal depth, the first one declared wins.">nearest wins</dfn>:
 the declaration closest to your `pom.xml` in the tree wins, and on equal
 depth the one declared first. A direct dependency is depth 1 and always
-beats a transitive one, and the same rule settles the scope. That is why
+beats a transitive one. The same rule also settles the scope. That is why
 declaring `spring-boot-starter-tomcat` ourselves as `provided` overrides
 the `compile` scope it has inside `spring-boot-starter-web`. Entries in
 `dependencyManagement` go above all of this: they fix the version no
@@ -286,7 +289,7 @@ matter where the artifact turns up. [Chapter 5](build-05-hello-swagger.md)
 uses nearest wins on purpose to line up the Jackson libraries.
 
 `mvn dependency:tree` prints the resolved tree. Each line ends with
-`:scope`; a library that was asked for twice appears once, where it won.
+`:scope`. A library that was asked for twice appears once, where it won.
 
 ### What a WAR is
 
@@ -299,18 +302,18 @@ is a zip file with a layout fixed by the servlet specification:
 |---|---|---|
 | `WEB-INF/classes/` | `target/classes/` (compiled code and resources) | Your classes and config files, on the app's classpath |
 | `WEB-INF/lib/*.jar` | every `compile` and `runtime` dependency | The libraries, on the app's classpath |
-| `WEB-INF/web.xml` | `src/main/webapp/WEB-INF/web.xml` | The deployment descriptor (an XML file that registers servlets and filters); optional since Servlet 3.0 |
+| `WEB-INF/web.xml` | `src/main/webapp/WEB-INF/web.xml` | The deployment descriptor (an XML file that registers servlets and filters). Optional since Servlet 3.0 |
 | everything else in `src/main/webapp/` | copied as is | Static files, served by Tomcat |
 | `META-INF/MANIFEST.MF`, `META-INF/maven/...` | the WAR plugin | Build metadata and a copy of the `pom.xml` |
 
 </div>
 
-Nothing under `WEB-INF/` can be downloaded by a browser; Tomcat refuses to
+Nothing under `WEB-INF/` can be downloaded by a browser. Tomcat refuses to
 serve it. The VWO has no web.xml content any more (every line of its
 `web.xml` is commented out), and we start without the file at all.
 `<failOnMissingWebXml>false</failOnMissingWebXml>` allows that. Since
 `maven-war-plugin` 3.0 it is the default, so the line documents an
-intention more than it changes behaviour; the VWO has it, so we keep it.
+intention more than it changes behaviour. The VWO has it, so we keep it.
 
 ### What the VWO pom has that we leave out
 
@@ -319,9 +322,9 @@ the WAR:
 
 - **The eighteen `spring-*` dependencies at 5.3.39.** Replaced by the BOM above. Several (`spring-jms`, `spring-websocket`, `spring-oxm`) are not used by the API at all.
 - **`<sourceDirectory>src/main/java/</sourceDirectory>`.** That is the default.
-- **`maven-dependency-plugin` copying `javaee-endorsed-api` 7.0 into `target/endorsed`.** A leftover from the <dfn data-def="Java Enterprise Edition: a set of standard APIs for server applications (servlets, JPA, validation, ...) that servers such as Tomcat partly implement. Now called Jakarta EE.">Java EE</dfn> 7 era; nothing reads that folder.
+- **`maven-dependency-plugin` copying `javaee-endorsed-api` 7.0 into `target/endorsed`.** A leftover from the <dfn data-def="Java Enterprise Edition: a set of standard APIs for server applications (servlets, JPA, validation, ...) that servers such as Tomcat partly implement. Now called Jakarta EE.">Java EE</dfn> 7 era. Nothing reads that folder.
 - **`spring-boot-maven-plugin` 2.7.18 with no executions.** Its `repackage` goal, which makes an executable WAR, is only bound by `spring-boot-starter-parent`. Without that parent the plugin does nothing during `mvn package`, which is why the VWO's `target/` has no `restAPI.war.original`.
-- **`javaee-api` 8.0.1 with `compile` scope.** It puts the Java EE 8 API jar into `WEB-INF/lib`; Tomcat provides the parts it implements.
+- **`javaee-api` 8.0.1 with `compile` scope.** It puts the Java EE 8 API jar into `WEB-INF/lib`. Tomcat provides the parts it implements.
 
 </div>
 
@@ -336,7 +339,7 @@ and `mvn -v` reporting 17.0.20 inside it.
 <ul class="checklist">
 <li><label><input type="checkbox"><span>In <code>~/Coding/techolympiad</code>, create <code>pom.xml</code> exactly as below.</span></label></li>
 <li><label><input type="checkbox"><span>Run <code>mvn validate</code>. It downloads nothing yet and ends with <code>BUILD SUCCESS</code>: the POM is well-formed and every dependency has a version.</span></label></li>
-<li><label><input type="checkbox"><span>Run <code>mvn package</code>. The first run downloads the dependencies and plugins; watch which plugin goal runs in which order.</span></label></li>
+<li><label><input type="checkbox"><span>Run <code>mvn package</code>. The first run downloads the dependencies and plugins. Watch which plugin goal runs in which order.</span></label></li>
 <li><label><input type="checkbox"><span>Run <code>mvn dependency:tree</code> and find <code>tomcat-embed-core</code> and <code>lombok</code>. Note their scope.</span></label></li>
 <li><label><input type="checkbox"><span>Look inside the WAR: <code>jar tf target/techolympiadAPI.war</code>. Check that no <code>tomcat-embed-*</code> and no <code>lombok</code> jar is in <code>WEB-INF/lib</code>.</span></label></li>
 <li><label><input type="checkbox"><span>Read the manifest: <code>unzip -p target/techolympiadAPI.war META-INF/MANIFEST.MF</code>.</span></label></li>
@@ -477,7 +480,7 @@ The interesting lines, in order:
 ```
 
 The versions of the resources and surefire plugins are whatever your
-Maven release defaults to, so yours may show other numbers; the compiler and WAR versions are the ones we
+Maven release defaults to, so yours may show other numbers. The compiler and WAR versions are the ones we
 pinned. Each line has the form `plugin:version:goal (execution id)`, which
 is the binding table from the Deep Understanding tab, live.
 
@@ -515,9 +518,9 @@ mvn dependency:tree
 
 The tree is trimmed at the `...` lines. Note three things. The Spring
 modules say 5.3.39 although the Boot starters ask for 5.3.31: that is the
-BOM. The Tomcat starter appears once, at the top level, as `provided`;
-inside `spring-boot-starter-web` it lost to our declaration. And
-`jackson-databind` is 2.13.5; remember that number for chapter 5.
+BOM. The Tomcat starter appears once, at the top level, as `provided`.
+Inside `spring-boot-starter-web` it lost to our declaration. And
+`jackson-databind` is 2.13.5. Remember that number for chapter 5.
 
 ```bash
 jar tf target/techolympiadAPI.war | grep -v '^WEB-INF/lib/.'
@@ -543,7 +546,7 @@ Build-Jdk-Spec: 17
 <div class="callout danger">
 <div class="callout-label">When it breaks</div>
 
-- **`'dependencies.dependency.version' for ... is missing`**: a dependency without `<version>`. Without a Spring Boot parent, nothing supplies one; only the Spring Framework modules get theirs from the BOM.
+- **`'dependencies.dependency.version' for ... is missing`**: a dependency without `<version>`. Without a Spring Boot parent, nothing supplies one. Only the Spring Framework modules get theirs from the BOM.
 - **`Could not find artifact org.springframework.boot:spring-boot-starter-webb:jar:2.7.18`**: a typo in a coordinate. Maven looks for exactly the path the coordinate spells.
 - **`Unknown lifecycle phase "pacakge"`**: Maven treats anything that is not `plugin:goal` as a phase name, and rejects a misspelled one.
 - **`mvn: command not found`, or `mvn -v` shows the wrong Java**: you are outside `~/Coding/techolympiad`, so mise activates nothing. See [chapter 1](build-01-toolbox.md).
@@ -559,7 +562,7 @@ Build-Jdk-Spec: 17
 <ol class="quiz-options">
 <li>Only <code>war:war</code>, because you asked for <code>package</code><p class="quiz-whynot">A phase on the command line runs the whole lifecycle up to and including that phase.</p></li>
 <li data-correct><code>resources:resources</code>, <code>compiler:compile</code>, <code>surefire:test</code> and <code>war:war</code>, in that order<p class="quiz-why">Every phase from <code>validate</code> to <code>package</code> runs, with the goals bound to it.</p></li>
-<li>Everything including <code>install:install</code><p class="quiz-whynot"><code>install</code> comes after <code>package</code>; it only runs for <code>mvn install</code> or later phases.</p></li>
+<li>Everything including <code>install:install</code><p class="quiz-whynot"><code>install</code> comes after <code>package</code>. It only runs for <code>mvn install</code> or later phases.</p></li>
 </ol>
 <p class="quiz-explain">This is why <code>-DskipTests</code> exists: the <code>test</code> phase is on the way to <code>package</code>, so the only way past it is to tell Surefire to skip.</p>
 </div>
@@ -577,7 +580,7 @@ Build-Jdk-Spec: 17
 <div class="quiz" data-quiz>
 <p class="quiz-q"><code>spring-boot-starter-web</code> depends on <code>spring-boot-starter-tomcat</code> with scope <code>compile</code>. You also declare <code>spring-boot-starter-tomcat</code> yourself with scope <code>provided</code>. What ends up in the WAR?</p>
 <ol class="quiz-options">
-<li>The embedded Tomcat, because <code>compile</code> is the stronger scope<p class="quiz-whynot">Maven does not rank scopes by strength here; it picks the nearest declaration.</p></li>
+<li>The embedded Tomcat, because <code>compile</code> is the stronger scope<p class="quiz-whynot">Maven does not rank scopes by strength here. It picks the nearest declaration.</p></li>
 <li data-correct>No embedded Tomcat: the direct declaration is nearest, so its <code>provided</code> scope wins, also for Tomcat's own dependencies<p class="quiz-why">Depth 1 beats depth 2, and the transitive dependencies of a <code>provided</code> dependency are <code>provided</code> too.</p></li>
 <li>Maven fails with a scope conflict<p class="quiz-whynot">Conflicts are always resolved silently. <code>mvn dependency:tree -Dverbose</code> shows what lost.</p></li>
 </ol>
@@ -587,9 +590,9 @@ Build-Jdk-Spec: 17
 
 <div class="flashcards" data-flashcards data-front-label="Term" data-back-label="Meaning">
 <div class="card"><div class="front">Coordinate (GAV)</div><div class="back"><code>groupId:artifactId:version</code>. Also the folder path in <code>~/.m2/repository</code>.</div></div>
-<div class="card"><div class="front">Phase</div><div class="back">A step in a lifecycle. Running one runs all earlier phases; plugins bind goals to phases.</div></div>
+<div class="card"><div class="front">Phase</div><div class="back">A step in a lifecycle. Running one runs all earlier phases. Plugins bind goals to phases.</div></div>
 <div class="card"><div class="front"><code>provided</code> scope</div><div class="back">On the compile classpath and left out of the WAR. For things the server supplies (Tomcat) or that run only at compile time (Lombok).</div></div>
-<div class="card"><div class="front">Nearest wins</div><div class="back">Maven's version and scope mediation: the declaration closest to your POM wins; on a tie, the first declared.</div></div>
+<div class="card"><div class="front">Nearest wins</div><div class="back">Maven's version and scope mediation: the declaration closest to your POM wins. On a tie, the first declared.</div></div>
 <div class="card"><div class="front">BOM</div><div class="back">A POM of versions, imported into <code>dependencyManagement</code>. Pins versions at any depth without adding dependencies.</div></div>
 <div class="card"><div class="front"><code>WEB-INF/lib</code></div><div class="back">Where every <code>compile</code> and <code>runtime</code> dependency goes inside a WAR. Not downloadable by browsers.</div></div>
 <div class="card"><div class="front"><code>finalName</code></div><div class="back">The output file name without extension. Default <code>artifactId-version</code>; ours is <code>techolympiadAPI</code>.</div></div>
@@ -608,7 +611,7 @@ The VWO does not inherit from <code>spring-boot-starter-parent</code> (its paren
 <details class="qa">
 <summary>Self-check: where would <code>mvn install</code> put our WAR, and under what name?</summary>
 <div class="ans">
-In <code>~/.m2/repository/be/techolympiad/techolympiadAPI/0.1.0/techolympiadAPI-0.1.0.war</code>. The repository path follows the coordinate; <code>finalName</code> only names the file in <code>target/</code>.
+In <code>~/.m2/repository/be/techolympiad/techolympiadAPI/0.1.0/techolympiadAPI-0.1.0.war</code>. The repository path follows the coordinate. <code>finalName</code> only names the file in <code>target/</code>.
 <div class="mark"><button type="button">Mark as known</button></div>
 </div>
 </details>

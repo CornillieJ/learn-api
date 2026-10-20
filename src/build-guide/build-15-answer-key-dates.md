@@ -21,8 +21,9 @@ does not map one to one onto Java. `ANTWOORD` is a MariaDB `SET`, which
 can hold several letters at once. `RONDE` is an `ENUM('1','2','F')` whose
 values are not valid Java names, so it needs a JPA
 <dfn data-def="A JPA class implementing AttributeConverter&lt;X, Y&gt; that turns an entity attribute of type X into a column value of type Y and back. Applied with @Convert or automatically with @Converter(autoApply = true).">AttributeConverter</dfn>.
-That converter is also why the dates entity is the one place where we
-follow the VWO's single `@EmbeddedId` instead of `@IdClass`.
+That converter is also the reason the dates entity uses `@EmbeddedId`
+instead of `@IdClass`. It is our only entity with `@EmbeddedId`, and
+the VWO's version of this entity is its only one too.
 
 **After this chapter you can:**
 
@@ -88,9 +89,10 @@ JTO, round 1, 2027:  BDACEABDCECEABDDBECAEACDBACBED
 The DAO orders the rows by `VRAAG` and concatenates the letters. Java
 streams make that one expression: `map` each row to its answer and
 `Collectors.joining()` glues the strings together, the counterpart of
-`string.Concat(rows.Select(r => r.Antwoord))` in C#. The VWO uses Apache
-Commons' (a widely used Java utility library) `StringUtils.join(answers, null)` on a `List<Character>`, which
-does the same thing in a pre-streams style.
+`string.Concat(rows.Select(r => r.Antwoord))` in C#. The VWO calls
+`StringUtils.join(answers, null)` on a `List<Character>`. `StringUtils`
+comes from Apache Commons, a widely used Java utility library. The call
+does the same thing in the style from before streams.
 
 ### A `SET` column
 
@@ -114,8 +116,8 @@ That works as long as every row holds one letter. A row with `'A,C'`
 would make Hibernate call `Answer.valueOf("A,C")`, which throws
 `IllegalArgumentException: No enum constant ... A,C`, and the whole query
 would fail. TechOlympiad maps it as a `String`, the type the driver
-returns, and lets the code decide. In the answer string a question with
-several accepted answers becomes `*`; the scorer of chapter 16 reads the
+returns, and lets the code decide. In the answer string, a question with
+several accepted answers becomes `*`. The scorer of chapter 16 reads the
 rows themselves and accepts any of the letters. The seed has one letter
 per question, so the strings you will see contain no `*`.
 
@@ -164,8 +166,8 @@ mapping fits:
 
 ### Converters and keys: why this entity uses `@EmbeddedId`
 
-`RONDE` is part of the primary key. Here the choice of chapter 12
-matters. JPA states that converters do not apply to id attributes, and
+`RONDE` is part of the primary key. Here the choice between `@IdClass`
+and `@EmbeddedId` from chapter 12 matters. JPA states that converters do not apply to id attributes, and
 Hibernate 5 follows that for any attribute annotated `@Id`: it skips the
 converter and falls back to its default enum mapping. With `@IdClass`,
 every key field in the entity carries `@Id`, so a converter on `ronde`
@@ -186,13 +188,15 @@ VWO's exact shape: `WebsiteVwoWedstrijddatums` is its only entity with
 private Configuration.VwoRound ronde;
 ```
 
-Two details there are not worth copying. `attributeName` is meant for
-`@Convert` on an embedded or map attribute, naming a sub-attribute; on a
-basic field it names nothing. The converter still applies because the
-VWO also declares it `@Converter(autoApply = true)`, which makes
-Hibernate use it for every `VwoRound` attribute. And it converts to
-`Character`; we convert to `String`, which is what the driver returns
-for an `ENUM` column anyway.
+Two details there are not worth copying:
+
+1. `attributeName`. This attribute names a sub-attribute when `@Convert`
+   sits on an embedded or map attribute. On a basic field it names
+   nothing. The converter still applies because the VWO also declares it
+   `@Converter(autoApply = true)`. That makes Hibernate use it for every
+   `VwoRound` attribute.
+2. The target type. The VWO converts to `Character`. We convert to
+   `String`, which is what the driver returns for an `ENUM` column anyway.
 
 The costs of `@EmbeddedId` are the ones from chapter 12's table. HQL
 reaches the key through the field, `w.pk.jaar` (the VWO writes `w.id.jaar`,
@@ -213,20 +217,22 @@ like a value that was sent:
 For `year` it does not, as chapter 13 showed: the default is computed per
 request with `Objects.requireNonNullElse(year, General.getCurrentSchoolYear())`.
 The VWO's `AnswerStringController` has no `year` parameter at all and
-always serves the current school year; adding one costs a line and lets
-you ask for last year's key.
+always serves the current school year. Adding the parameter costs one
+line and lets you ask for last year's key.
 
 ### Plain text responses
 
-The answer string is not JSON; it is 30 letters. The VWO's `v1`
+The answer string is not JSON. It is 30 letters. The VWO's `v1`
 `AnswerStringController` therefore says
 `produces = MediaType.TEXT_PLAIN_VALUE`, and Spring writes the returned
-`String` with its `StringHttpMessageConverter`, as is. With
-`APPLICATION_JSON_VALUE`, as on our other controllers, the same converter
-would still write the raw letters (Spring picks it for any `String`
-return value), but label them `application/json`, which a strict client
-cannot parse. So this controller follows the VWO and deviates from our
-usual `produces`.
+`String` as is, with its `StringHttpMessageConverter`.
+
+Our other controllers say `APPLICATION_JSON_VALUE`. With that value,
+Spring still picks the same converter, because it does so for any
+`String` return value. The converter still writes the raw letters, but
+it labels them `application/json`, and a strict client cannot parse
+them. So this controller follows the VWO and deviates from our usual
+`produces`.
 
 ### Literal paths win over variables
 
@@ -701,7 +707,7 @@ public class AntwoordenRepositoryImpl implements AntwoordenRepository {
 The VWO's interface is declared `Repository<CorrectAnswer, Integer>`,
 naming a model class as its entity. The type arguments of the Spring Data
 marker are never checked because of `@NoRepositoryBean`, so it compiles
-and runs; ours names the entity it actually serves.
+and runs. Our interface names the entity it actually serves.
 
 `restAPI/repositories/ToContestDatesRepository.java`
 
@@ -764,9 +770,9 @@ public class ToContestDatesRepositoryImpl implements ToContestDatesRepository {
 The `Collection<? extends WebsiteToWedstrijddatums>` return type is the
 VWO's (`VwoContestDatesRepository.findAllByYear`). It promises only
 something to iterate, which leaves the implementation free to return
-any collection, such as a cached one. Round dates change once a year and are read on every page of a contest
-website: the VWO caches this repository, and chapter 21 adds
-`@Cacheable` here.
+any collection, such as a cached one. Round dates change once a year,
+and every page of a contest website reads them. The VWO caches this
+repository for that reason, and chapter 21 adds `@Cacheable` here.
 
 ### Controllers
 
