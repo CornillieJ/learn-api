@@ -13,8 +13,9 @@ Boot application, but nothing runs it yet. In production the VWO API runs
 in the official `tomcat:9` Docker image: the `Dockerfile` copies
 `target/restAPI.war` into Tomcat's `webapps/` folder under the name
 `database.war`, and Tomcat serves it at `/database`. On this machine,
-`~/bin/vwo-local-restart` does the same with a bind mount instead of a
-copy.
+`~/bin/vwo-local-restart` does the same with a
+<dfn data-def="A Docker mount that makes a file or folder of your machine appear inside the container, so the container sees changes without a rebuild.">bind mount</dfn>
+instead of a copy.
 
 TechOlympiad does what the local script does, written down as a
 `docker-compose.yml` with one service, `api`. The WAR stays in `target/`
@@ -25,7 +26,7 @@ the same file.
 
 **After this chapter you can:**
 
-- explain what a servlet container does and where Tomcat 9 sits between Java EE and Jakarta EE;
+- explain what a <dfn data-def="A Java web server that implements the Servlet API: it accepts HTTP connections, deploys WARs and calls their servlets and filters. Tomcat is one.">servlet container</dfn> does and where Tomcat 9 sits between <dfn data-def="Java Enterprise Edition: the set of standard Java APIs for server applications (servlets, JPA, validation), in javax.* packages. Renamed Jakarta EE when it moved to the Eclipse Foundation, and from version 9 on its packages are jakarta.*.">Java EE and Jakarta EE</dfn>;
 - deploy a WAR by dropping it into `webapps/`, and predict its URL from the file name;
 - find Tomcat's logs, both in `docker compose logs` and in the log files;
 - redeploy after a build, and say why we restart instead of relying on hot redeploy.
@@ -285,7 +286,8 @@ flowchart LR
 
 The context path is removed before the application sees the path: inside
 the application, the request above is for `/x`. That is why the VWO's
-`@RequestMapping` paths start with `/api/v2`, never with `/database`, and
+`@RequestMapping` paths (Spring's annotation that maps a URL to a
+controller, like `[Route]`) start with `/api/v2`, never with `/database`, and
 why the same WAR works under any name.
 
 </div>
@@ -395,7 +397,8 @@ Compare it with the embedded run of chapter 3: there are no
 because Spring Boot started no server. The Tomcat lines in between are
 the chain from chapter 3 happening for real. You will also see a line
 about JARs that were scanned for TLDs and contained none; that is Tomcat
-looking for JSP tag libraries, harmless.
+looking for the tag library descriptors of JSP (JavaServer Pages, Java's
+old server-side HTML templates, a bit like Razor views), harmless.
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8081/

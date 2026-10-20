@@ -77,13 +77,16 @@ certificates.
 
 ## The code
 
-The Java side mirrors the VWO API's packages one to one:
+The Java side mirrors the VWO API's packages one to one. A Java package is
+the counterpart of a C# namespace, with one difference: the folder path
+must match it, so `be.techolympiad.common.dao` lives in
+`be/techolympiad/common/dao/`.
 
 <div class="ref-tree" data-ref-tree data-expanded>
 
 - `be.techolympiad.common` (VWO: `be.vwo.common`)
   - `Configuration`, `General`: enums such as `ToRole` and `ToRound`, and the school year helper
-  - `dbEntities`: entities and their `*PK` key classes
+  - `dbEntities`: entities and their `*PK` key classes (a separate class that holds a composite primary key)
   - `dao`: DAO interfaces, starting with `AbstractDao` and `TechOlympiadDao` (VWO: `VwoDao`)
     - `impl`: `AbstractDaoImpl`, `TechOlympiadDaoImpl` (VWO: `VwoDaoImpl`), then one `*DaoImpl` per entity
   - `restAPI`: the application class, Swagger and error handling
@@ -91,7 +94,7 @@ The Java side mirrors the VWO API's packages one to one:
       - `v1`, `v2`: the thin versioned controllers and `V1Config`/`V2Config`
     - `repositories`: repository interfaces and their `*RepositoryImpl`
     - `models`: request and response objects that are not entities
-  - `security`: login, tokens and the security filter chain
+  - `security`: login, tokens and the <dfn data-def="Spring Security's ordered list of servlet filters that every request passes through before it reaches a controller, roughly the authentication and authorization part of the ASP.NET Core middleware pipeline.">security filter chain</dfn>
 
 </div>
 
@@ -104,6 +107,9 @@ Names follow the VWO habits:
 - The school year is a `short` called `JAAR` in the database and `year` in the JSON. It is the
   year the school year ends in, so 2026-2027 is `2027`.
 - School and person ids are `Short`, pupil ids `Integer`, rounds and question numbers `byte`.
+  `Short` and `Integer` with a capital letter are wrapper classes that can be `null`, roughly
+  `short?` and `int?`; the lowercase `short` and `byte` are primitives that cannot. Java's `byte`
+  is signed (-128 to 127), so it matches C#'s `sbyte`, not `byte`.
 
 ## Where we deviate on purpose
 
@@ -113,8 +119,8 @@ Names follow the VWO habits:
 |---|---|---|
 | Round results are filled in outside the API | Endpoints to submit answers, score them and select for the next round | It is the most interesting logic in the domain, and it exercises transactions across several DAOs |
 | `Functies` has no primary key, only a unique index | `Functies` gets that unique index as its primary key | The entity already treats it as the key |
-| Logins are checked with `sha2(...)` in HQL while production stores bcrypt hashes | Logins use bcrypt through Spring Security | The VWO mismatch is a bug, not a pattern |
-| Hard-coded keys and an in-memory `admin` user in the source | Secrets come from the environment properties | Same reason |
+| Logins are checked with `sha2(...)` in HQL while production stores bcrypt hashes | Logins use bcrypt through <dfn data-def="Spring's authentication and authorization framework, built as a chain of servlet filters. The counterpart of ASP.NET Core's authentication and authorization middleware.">Spring Security</dfn> | The VWO mismatch is a bug, not a pattern |
+| Hard-coded keys and an in-memory `admin` user in the source | Secrets come from the environment properties (a `.properties` file of `key=value` lines, Java's usual config format, playing the role of `appsettings.json`) | Same reason |
 | Kangoeroe, invoicing, digital contest | Left out | Size |
 
 </div>

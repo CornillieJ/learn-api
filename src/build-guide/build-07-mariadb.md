@@ -31,7 +31,7 @@ with `Scholen` in [chapter 9](build-09-first-entity.md).
 
 - add a database service with a healthcheck to a Compose file and make another service wait for it;
 - explain when the scripts in `/docker-entrypoint-initdb.d` run, and when they silently do not;
-- read and write MariaDB DDL: keys, `enum`, `set`, views and grants;
+- read and write MariaDB <dfn data-def="Data Definition Language: the SQL statements that create and change the schema (CREATE, ALTER, DROP), as opposed to the statements that read and change rows.">DDL</dfn>: keys, `enum`, `set`, views and grants;
 - rebuild the database from scratch with `docker compose down -v`.
 
 <div class="code-compare" data-code-compare data-labels="VWO: vwo-local-db|TechOlympiad">
@@ -281,6 +281,12 @@ chapters must match them exactly:
 | `datetime` | date and time, no time zone | `LocalDateTime` | `INSCHRIJFDATUM` |
 
 </div>
+
+`BigDecimal` is Java's exact decimal type, the counterpart of C#'s
+`decimal`. `LocalDateTime` is a date and time without a time zone, like a
+`DateTime` with `DateTimeKind.Unspecified`. The `year(4)` column is read
+with native SQL: plain SQL sent through Hibernate instead of HQL
+(chapter 17).
 
 Java has no unsigned integer types. The VWO schema declares most ids
 `UNSIGNED` (`SCHOOL_ID smallint(4) UNSIGNED`), which allows school ids up

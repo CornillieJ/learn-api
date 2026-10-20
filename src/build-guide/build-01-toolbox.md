@@ -17,8 +17,9 @@ on every build:
 mise exec java@temurin-17.0.20+8 maven@3.9.16 -- mvn -q -DskipTests -Pgitlab-dev package
 ```
 
-TechOlympiad pins the same two versions in a `mise.toml` inside the
-project, so `java` and `mvn` are simply right whenever you are in that
+TechOlympiad pins the same two versions with
+<dfn data-def="A tool version manager: it installs tools such as java, maven and node side by side and activates the right version per folder.">mise</dfn>,
+in a `mise.toml` inside the project, so `java` and `mvn` are simply right whenever you are in that
 folder. Tomcat and MariaDB never get installed on your machine: they run
 as Docker containers, from the same images the VWO setup uses.
 
@@ -59,7 +60,7 @@ The <dfn data-def="Java Virtual Machine: the program that loads .class files and
 loads those classes and runs them. The
 <dfn data-def="Java Development Kit: the JVM plus the developer tools (javac, jar, javap, jshell, ...).">JDK</dfn>
 is the JVM plus the tools that make class files. A runtime-only install
-(a JRE) can run a WAR but not build one, so a build machine always needs
+(a JRE, Java Runtime Environment) can run a WAR but not build one, so a build machine always needs
 the JDK.
 
 <div class="table-wrap">
@@ -94,7 +95,10 @@ bytecode targets Java 17. Two facts follow from that:
    on 21 or 25. The reverse fails with `UnsupportedClassVersionError`.
 2. **The ceiling is Spring Boot 2.7, not Java.** Spring Boot 3 and Spring 6
    need Java 17 or newer, but they also move every `javax.*` import to
-   `jakarta.*` and bring Hibernate 6. That migration, not the Java
+   `jakarta.*` and bring Hibernate 6. (`javax.*` holds the Java EE
+   standard APIs this code uses, such as servlets, JPA and validation.
+   When Oracle handed Java EE to the Eclipse Foundation it became Jakarta
+   EE, and from version 9 on those packages are called `jakarta.*`.) That migration, not the Java
    version, is what keeps the VWO API on Boot 2.7. Tutorials written for
    Boot 3 will show `jakarta.persistence.Entity` where our code says
    `javax.persistence.Entity`.
@@ -112,7 +116,7 @@ script pins `tomcat:9-jdk17`, and so will TechOlympiad.
 
 ### How mise picks the version
 
-<dfn data-def="A tool version manager: it installs tools such as java, maven and node side by side and activates the right version per folder.">mise</dfn>
+mise
 reads `mise.toml` in the current folder (and its parents). When you type
 `java`, a small mise shim finds the version that file asks for and runs
 it. mise also sets `JAVA_HOME`, the variable Maven and IntelliJ use to
@@ -166,7 +170,7 @@ The public class name must match the file name: `Hello` lives in
 <div class="quiz" data-quiz>
 <p class="quiz-q">The VWO API is compiled with <code>&lt;release&gt;17&lt;/release&gt;</code>. Production runs <code>FROM tomcat:9</code>, which ships Java 25. What happens?</p>
 <ol class="quiz-options">
-<li>Tomcat refuses to deploy the WAR because the versions differ<p class="quiz-whynot">Tomcat does not compare versions; only the JVM's class loader checks the class file version.</p></li>
+<li>Tomcat refuses to deploy the WAR because the versions differ<p class="quiz-whynot">Tomcat does not compare versions; only the JVM's <dfn data-def="The part of the JVM that finds .class files (in jars and folders) and loads them into memory.">class loader</dfn> checks the class file version.</p></li>
 <li data-correct>It runs: a newer JVM loads older bytecode<p class="quiz-why">Class files carry a version number, and a JVM accepts its own version and every older one.</p></li>
 <li>It fails with <code>UnsupportedClassVersionError</code><p class="quiz-whynot">That error is the reverse case: bytecode newer than the JVM running it.</p></li>
 </ol>

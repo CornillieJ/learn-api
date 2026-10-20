@@ -167,7 +167,8 @@ public ResponseEntity<Functies> update(@NotNull Functies entity) {
 }
 ```
 
-`NotImplementedException` is commons-lang3's, an unchecked exception.
+`NotImplementedException` comes from commons-lang3 (Apache Commons Lang,
+a general utility library) and is an unchecked exception.
 The `@ExceptionHandler` sits in the controller class, so it only applies
 to this controller: elsewhere a `NotImplementedException` would still be
 a `500`. `410 Gone` tells a client the endpoint existed and will not come

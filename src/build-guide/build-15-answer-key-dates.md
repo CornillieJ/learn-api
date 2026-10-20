@@ -89,7 +89,7 @@ The DAO orders the rows by `VRAAG` and concatenates the letters. Java
 streams make that one expression: `map` each row to its answer and
 `Collectors.joining()` glues the strings together, the counterpart of
 `string.Concat(rows.Select(r => r.Antwoord))` in C#. The VWO uses Apache
-Commons' `StringUtils.join(answers, null)` on a `List<Character>`, which
+Commons' (a widely used Java utility library) `StringUtils.join(answers, null)` on a `List<Character>`, which
 does the same thing in a pre-streams style.
 
 ### A `SET` column

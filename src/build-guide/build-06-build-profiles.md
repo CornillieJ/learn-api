@@ -13,8 +13,10 @@ database URL, database users, log levels and description. Those values
 live in two files, `environmentAPI.dev.properties` and
 `environmentAPI.prod.properties`. The application reads neither of them.
 It reads `environment.properties`, a file that does not exist in the
-sources: during the build, a Maven *profile* runs an Ant target that
-copies one of the two environment files to `target/classes/environment.properties`.
+sources: during the build, a Maven *profile* (a named block of build
+settings in `pom.xml`, switched on with `-P`) runs an
+<dfn data-def="Apache Ant: the XML-based Java build tool that came before Maven. A build file holds targets made of tasks such as copy and delete, like MSBuild targets and tasks.">Ant</dfn>
+target that copies one of the two environment files to `target/classes/environment.properties`.
 Which environment a WAR is for is therefore decided when it is built.
 
 This chapter builds the same mechanism for TechOlympiad, with two

@@ -11,13 +11,14 @@
 A Spring Boot application starts from one class. In the VWO API it is
 `be.vwo.common.restAPI.OpenApiApplication`, and its annotations decide
 three things for the whole API: which packages Spring searches for
-components, which of Spring Boot's automatic setups are switched off, and
-which properties files are loaded. It also extends
-`SpringBootServletInitializer`, the hook that lets Tomcat start the
-application from a WAR.
+components (the classes it should create and wire for you), which of
+Spring Boot's automatic setups are switched off, and which properties
+files are loaded. It also extends `SpringBootServletInitializer`, the hook
+that lets Tomcat start the application from a WAR.
 
 This chapter writes TechOlympiad's `OpenApiApplication` with those
-annotations and one properties file, `api.properties`. The Swagger beans
+annotations and one properties file, `api.properties`. The Swagger
+<dfn data-def="An object created and managed by Spring's dependency injection container, the counterpart of a registered service in .NET.">beans</dfn>
 and the other property sources join it in later chapters, so the class
 grows in the same order the VWO's features are built.
 
@@ -26,7 +27,7 @@ grows in the same order the VWO's features are built.
 - explain the two ways a Spring Boot application starts, and which one Tomcat uses;
 - say why the WAR has a `main` method that production never calls;
 - explain what `@SpringBootApplication` switches on, and how `scanBasePackages` changes component scanning;
-- read the auto-configuration report and say why `DataSourceAutoConfiguration` is excluded;
+- read the auto-configuration report and say why `DataSourceAutoConfiguration` (Spring Boot's automatic database connection setup) is excluded;
 - load a properties file with `@PropertySource`.
 
 <div class="code-compare" data-code-compare data-labels="VWO OpenApiApplication|TechOlympiad, chapter 3">
@@ -108,7 +109,10 @@ both.
 **From `main`.** `SpringApplication.run(OpenApiApplication.class, args)`
 creates the context, sees Tomcat's classes on the classpath, starts an
 *embedded* Tomcat inside the same JVM and registers the
-`DispatcherServlet` in it. This is how `dotnet run` works with Kestrel, and
+`DispatcherServlet` in it. A servlet is a class that handles HTTP requests
+under the Servlet API; the `DispatcherServlet` is Spring MVC's single
+servlet that receives every request and routes it to the right controller
+method. This is how `dotnet run` works with Kestrel, and
 how most Spring Boot tutorials run.
 
 **From a servlet container.** Tomcat is already running and deploys the
@@ -134,6 +138,8 @@ Step by step:
 1. Tomcat looks in every jar in `WEB-INF/lib` for the file
    `META-INF/services/javax.servlet.ServletContainerInitializer`.
    `spring-web` has one, naming `SpringServletContainerInitializer`.
+   This is Java's standard service lookup: a file named after an
+   interface, listing the classes that implement it.
 2. That class is annotated `@HandlesTypes(WebApplicationInitializer.class)`,
    so Tomcat scans the WAR's classes for every implementation of
    `WebApplicationInitializer` and hands them over.
@@ -142,7 +148,8 @@ Step by step:
    `onStartup(ServletContext)` is called.
 4. `onStartup` creates a `SpringApplicationBuilder`, lets `configure` add
    the sources (our class), and runs the application. Because a
-   `ServletContext` already exists, Spring Boot starts no embedded server;
+   `ServletContext` (the object that stands for one deployed web
+   application inside Tomcat) already exists, Spring Boot starts no embedded server;
    it registers the `DispatcherServlet` and its filters in Tomcat's
    context instead.
 5. It also registers a listener that closes the Spring context when
@@ -226,8 +233,8 @@ part of `@SpringBootApplication` is what tells Spring to read it.
 
 Each recipe checks its conditions first:
 
-- `@ConditionalOnClass(DispatcherServlet.class)`: only if Spring MVC is on the classpath;
-- `@ConditionalOnMissingBean(ObjectMapper.class)`: only if you did not define your own;
+- `@ConditionalOnClass(DispatcherServlet.class)`: only if Spring MVC, Spring's web framework, is on the classpath;
+- `@ConditionalOnMissingBean(ObjectMapper.class)`: only if you did not define your own `ObjectMapper` (Jackson's JSON serializer);
 - `@ConditionalOnProperty(...)`: only if a property has a certain value.
 
 The classpath condition is the important one: adding a jar to the pom can
@@ -242,15 +249,27 @@ exclusions. The drill runs it.
 
 ### Why `DataSourceAutoConfiguration` is excluded
 
+Two Java terms first. <dfn data-def="Java Database Connectivity: Java's standard low-level database API (connections, SQL statements, result sets), with one driver per database. Roughly ADO.NET.">JDBC</dfn>
+(Java Database Connectivity) is Java's standard low-level database API:
+open a connection, send SQL, read rows. It is roughly ADO.NET, and every
+database ships a JDBC driver for it, the way MariaDB has an ADO.NET
+provider in .NET. Hibernate, like EF Core on top of ADO.NET, talks to the
+database through JDBC underneath. A `DataSource` is the JDBC object that
+hands out connections, usually from a
+<dfn data-def="A set of open database connections that are reused instead of opened and closed per query, like ADO.NET's built-in connection pooling.">connection pool</dfn>.
+
 One of those recipes is `DataSourceAutoConfiguration`. Its job: as soon as
-JDBC classes are on the classpath, create one database connection pool (a
-`DataSource` bean) from the `spring.datasource.url`, `username` and
-`password` properties.
+Spring's JDBC support (the `spring-jdbc` jar) is on the classpath, create
+one connection pool (a `DataSource` bean) from the
+`spring.datasource.url`, `username` and `password` properties, much like
+a .NET template that reads `ConnectionStrings:Default` for you.
 
 The VWO does not want that bean. It talks to the database in its own way,
 through two Hibernate session factories defined in its Spring XML: one
 that logs in as the read-only database user, one as the read-write user.
-Each opens its connections through Hibernate's own c3p0 pool:
+Each opens its connections through Hibernate's own pool, built with the
+<dfn data-def="An old, stable JDBC connection pool library. Hibernate integrates it through the hibernate-c3p0 module.">c3p0</dfn>
+library:
 
 ```xml
 <bean id="vwoRW" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
@@ -265,9 +284,9 @@ Each opens its connections through Hibernate's own c3p0 pool:
 So there are no `spring.datasource.*` properties anywhere. If the recipe
 ran, this is what would happen at startup:
 
-1. `spring-boot-starter-data-jpa` (added in [chapter 8](build-08-hibernate-xml.md)) puts JDBC classes on the classpath, so the recipe's condition matches.
+1. `spring-boot-starter-data-jpa` is added in [chapter 8](build-08-hibernate-xml.md). It is Spring Boot's starter for database access through JPA: one dependency that brings Hibernate, Spring's ORM and transaction support, `spring-jdbc` and the HikariCP connection pool. With `spring-jdbc` on the classpath, the recipe's condition matches.
 2. The recipe looks for `spring.datasource.url` and finds nothing.
-3. It then looks for an in-memory database such as H2 to fall back on, and finds none either.
+3. It then looks for an in-memory database such as H2 (a Java database that can run inside the application, often used in tests) to fall back on, and finds none either.
 4. Startup stops with `Failed to configure a DataSource: 'url' attribute is not specified and no embedded datasource could be configured.`
 
 The exclusion skips the recipe. It is written on the application class
@@ -279,13 +298,15 @@ itself, as an argument of `@SpringBootApplication`:
 
 `exclude` takes recipes off the list before Spring Boot evaluates them, so
 `DataSourceAutoConfiguration` never runs and no `DataSource` bean is made.
-Spring Boot's JPA recipe needs that bean, so it stays quiet too, and the
-database setup is left entirely to the XML. The
+Spring Boot's JPA recipe, `HibernateJpaAutoConfiguration`, would build
+Hibernate's JPA entry point (an `EntityManagerFactory`, JPA's name for a
+session factory) on top of that `DataSource`. It needs the bean, so it
+stays quiet too, and the database setup is left entirely to the XML. The
 `spring.autoconfigure.exclude` property does the same from a properties
 file; the VWO uses the annotation.
 
-In this chapter the exclusion changes nothing yet: there are no JDBC
-classes on the classpath, so the recipe's condition would fail on its
+In this chapter the exclusion changes nothing yet: `spring-jdbc` is not
+on the classpath, so the recipe's condition would fail on its
 own. We add it now so the class matches the VWO's from the first line,
 and so you can see it in the `--debug` report.
 

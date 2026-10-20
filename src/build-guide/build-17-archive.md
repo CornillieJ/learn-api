@@ -31,7 +31,7 @@ one transaction.
 - choose between HQL and native SQL for a query, and read native results safely;
 - route a query to the current or the history table by school year;
 - run several native write statements as one unit of work;
-- explain what native DML does to Hibernate's caches.
+- explain what native <dfn data-def="Data Manipulation Language: the SQL statements that change rows (INSERT, UPDATE, DELETE), as opposed to DDL, which changes the schema.">DML</dfn> does to Hibernate's caches.
 
 <div class="code-compare" data-code-compare data-labels="VWO LeerlingVWODaoImpl|TechOlympiad LeerlingToDaoImpl">
 
@@ -218,7 +218,8 @@ which `to_write` does not have (`DROP command denied to user 'to_write'`).
 Hibernate cannot parse native SQL, so it does not know which tables an
 `INSERT` or `DELETE` touches. Before running one it flushes the session,
 and afterwards it assumes the worst: every second-level cache region is
-invalidated. That does not matter yet, but chapter 21 caches `Scholen`,
+invalidated. (The second-level cache, set up in chapter 21, keeps entities
+across sessions; a region is its part for one entity.) That does not matter yet, but chapter 21 caches `Scholen`,
 and an archive would throw those cached schools away for no reason.
 `NativeQuery` lets you name what a statement affects:
 

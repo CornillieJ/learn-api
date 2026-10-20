@@ -13,8 +13,8 @@ first one: `Scholen`, as a Java class with one field per column. The
 class carries four kinds of annotation, each read by a different
 library:
 
-- JPA (`@Entity`, `@Table`, `@Id`, `@Column`) tells Hibernate which table and columns the class maps to.
-- Lombok (`@Getter`, `@Setter`, `@NoArgsConstructor`) writes the boilerplate at compile time.
+- JPA (`@Entity`, `@Table`, `@Id`, `@Column`), the standard Java ORM annotations, tells Hibernate which table and columns the class maps to.
+- Lombok (`@Getter`, `@Setter`, `@NoArgsConstructor`) writes the boilerplate at compile time: the getter and setter methods Java uses instead of C# properties, and a constructor.
 - Jackson (`@JsonProperty`) gives the JSON its English names.
 - Swagger (`@Schema`) names the model in the API documentation.
 
@@ -227,8 +227,9 @@ to drop Lombok.
 Lombok's `@Data` and `@EqualsAndHashCode` generate `equals` and
 `hashCode` over *all* fields. On an entity that is a trap: the hash
 changes when any column changes, so an entity put in a `HashSet` is lost
-in it after an update, and with lazy relations `hashCode` can load half
-the database. The VWO writes `equals` and `hashCode` by hand on its
+in it after an update, and with lazy relations (related entities that
+Hibernate loads only when first touched, like lazy loading in EF Core)
+`hashCode` can load half the database. The VWO writes `equals` and `hashCode` by hand on its
 entities, based on the id alone, and so do we. Lombok's
 `@EqualsAndHashCode` is fine on the small key classes of
 [chapter 12](build-12-responsables.md), whose fields are the identity.

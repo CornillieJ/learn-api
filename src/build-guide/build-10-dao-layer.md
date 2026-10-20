@@ -24,8 +24,8 @@ change to the Hello controller proves they work.
 
 **After this chapter you can:**
 
-- read generic Java classes with bounded type parameters, and explain why the type `E` has to be recovered with `GenericTypeResolver`;
-- explain how `@Transactional` works through a proxy, and recognise the self-invocation trap from its error message;
+- read generic Java classes with bounded type parameters (constraints like C#'s `where T : ...`), and explain why the type `E` has to be recovered with `GenericTypeResolver`;
+- explain how `@Transactional` works through a <dfn data-def="A generated object that stands in for the real bean, has the same methods, and runs extra code (here: begin and commit a transaction) around each call.">proxy</dfn>, and recognise the self-invocation trap from its error message;
 - say why DAOs call `getCurrentSession()` and never `openSession()`;
 - write an HQL query and predict the SQL Hibernate sends.
 
@@ -199,7 +199,9 @@ public void setFactoryRW(SessionFactory toRW) {
 }
 ```
 
-When `@Autowired` finds several candidates of the right type, Spring
+`@Autowired` asks Spring to inject a bean at that spot (a constructor,
+a setter or a field), much like a constructor parameter that .NET's
+container fills. When `@Autowired` finds several candidates of the right type, Spring
 falls back to matching the *parameter name* against the bean names. The
 parameter is called `toRW`, there is a bean called `toRW`, so that one
 wins. Rename the parameter to `factory` and the deployment fails with
@@ -220,7 +222,9 @@ ours passes `-parameters`, but the Maven compiler plugin compiles with
 Spring 6.1 removed the debug-information route. On a newer Spring, this
 code needs `-parameters` in the compiler arguments or an explicit
 `@Qualifier("toRW")` on the parameter. The same applies to every
-`@PathVariable` and `@RequestParam` without an explicit name.
+`@PathVariable` and `@RequestParam` (the annotations that bind a URL path
+segment or a query parameter to a method parameter) without an explicit
+name.
 
 </div>
 
@@ -281,7 +285,7 @@ registers a
 <dfn data-def="An object that stands in for the real bean, has the same methods, and runs extra code (here: begin and commit a transaction) around each call before delegating to the real object.">proxy</dfn>
 in place of the bean itself. Whoever gets `ScholenDao` injected gets the
 proxy. Spring Boot creates these proxies as generated subclasses
-(CGLIB); `getClass()` on an injected DAO prints something like
+(with CGLIB, a library that generates classes at run time); `getClass()` on an injected DAO prints something like
 `ScholenDaoImpl$$EnhancerBySpringCGLIB$$...`.
 
 ```mermaid

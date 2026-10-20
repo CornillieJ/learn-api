@@ -30,9 +30,9 @@ Six pieces, each a copy of a VWO piece:
 
 **After this chapter you can:**
 
-- trace a request from Tomcat through the `DispatcherServlet` to a controller method and back;
-- write a `@RestController` with class- and method-level mappings;
-- explain which message converter writes a response, and when Jackson is involved;
+- trace a request from Tomcat through the <dfn data-def="Spring MVC's front controller: the single servlet that receives every request and hands it to the right controller method.">`DispatcherServlet`</dfn> to a controller method and back;
+- write a `@RestController` with class- and method-level mappings (the annotations that tie a URL and HTTP method to a Java method, like routing attributes);
+- explain which <dfn data-def="A Spring MVC component that writes a returned object into the response body, or reads a request body into an object, for one or more media types. Like an ASP.NET Core output or input formatter.">message converter</dfn> writes a response, and when Jackson is involved;
 - configure springdoc with an `OpenAPI` bean, groups and properties, and explain each Swagger UI URL.
 
 <div class="code-compare" data-code-compare data-labels="VWO OpenApiApplication|TechOlympiad OpenApiApplication">
@@ -177,7 +177,7 @@ public class V1Config {
 ```
 
 A holder for constants. `static final` makes `BASE_URL` a compile-time
-constant, which is required: annotation values must be constants, so
+constant (roughly C#'s `const`), which is required: annotation values must be constants, so
 `V1Config.BASE_URL + "/hello"` is allowed inside `@RequestMapping`, while
 a value read from a property at run time would not be. No modifier means
 *package-private*: visible only inside `controllers.v1`, which is exactly
@@ -368,7 +368,10 @@ wins ([chapter 2](build-02-maven-project.md)), `jackson-databind` and
 `jackson-core` stay at 2.13.5 because they sit higher in the tree, while
 `jackson-dataformat-yaml` only appears under swagger-core and comes in at
 2.16.0. A Jackson module expects a core of its own minor version or
-newer, so that mix is asking for a `NoSuchMethodError` at startup.
+newer, so that mix is asking for a `NoSuchMethodError` at startup: the
+error the JVM throws when compiled code calls a method that the version of
+the library actually loaded does not have, the counterpart of .NET's
+`MissingMethodException`.
 
 The VWO declares `swagger-core` 2.2.30 directly. At depth 1 it beats
 everything, and its own dependencies (`jackson-databind`,

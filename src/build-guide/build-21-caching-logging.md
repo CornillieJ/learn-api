@@ -12,7 +12,7 @@ Two pieces of infrastructure the VWO API sets up once and then mostly
 forgets: a cache and a logger.
 
 The cache is Ehcache 3, reached through the Java caching standard,
-<dfn data-def="JSR-107, javax.cache: a standard caching API (CacheManager, Cache, CachingProvider) that Ehcache, Hazelcast and others implement. Spring and Hibernate both talk to it.">JCache</dfn>.
+<dfn data-def="JSR-107 (Java Specification Request 107), javax.cache: a standard caching API (CacheManager, Cache, CachingProvider) that Ehcache, Hazelcast and others implement. Spring and Hibernate both talk to it.">JCache</dfn>.
 Spring's `@Cacheable` puts method results in it, and Hibernate's second
 level cache keeps entities in it between sessions. TechOlympiad caches
 the contest dates and the registration fees, which change a few times a
@@ -32,7 +32,7 @@ its logger in one annotation.
 - put `@Cacheable` and `@CacheEvict` on the right methods, and predict their keys;
 - explain why a call from inside the same class bypasses the cache;
 - turn on Hibernate's second-level cache for one entity;
-- switch Spring Boot from Logback to Log4j2 and read a `log4j2.xml`, lookups included.
+- switch Spring Boot from Logback to Log4j2 and read a `log4j2.xml`, lookups (its `${...}` placeholders) included.
 
 <div class="code-compare" data-code-compare data-labels="VWO applicationContextAPI.xml|TechOlympiad applicationContextAPI.xml">
 
@@ -312,7 +312,7 @@ its level is at least the logger's level: `TRACE` < `DEBUG` < `INFO` <
 
 `${...}` is a <dfn data-def="Log4j2's ${prefix:key} substitution in configuration files: sys: system properties, env: environment variables, bundle: a ResourceBundle (a .properties file on the classpath), and more.">lookup</dfn>:
 
-- `${sys:catalina.base}` is the system property Tomcat sets at startup, its instance folder. In the `tomcat:9-jdk17` image it is `/usr/local/tomcat`, so the log goes to `/usr/local/tomcat/logs`. `catalina.home` is where Tomcat is installed; `catalina.base` is where this instance keeps `conf`, `logs` and `webapps`. In the image they are the same folder.
+- `${sys:catalina.base}` is the system property (a JVM-wide `key=value` setting, usually passed as `-Dkey=value` on the `java` command line) Tomcat sets at startup, its instance folder. In the `tomcat:9-jdk17` image it is `/usr/local/tomcat`, so the log goes to `/usr/local/tomcat/logs`. `catalina.home` is where Tomcat is installed; `catalina.base` is where this instance keeps `conf`, `logs` and `webapps`. In the image they are the same folder.
 - `${bundle:environment:log4j2.logLevel}` reads the key `log4j2.logLevel` from the resource bundle `environment`, which is `environment.properties` on the classpath: the file the build profile of chapter 6 copies. `local` logs `INFO` and Hibernate's SQL, `production` only `WARN`. One XML, one value per environment.
 
 A lookup that finds nothing stays in the text as it is. The VWO's
@@ -335,7 +335,8 @@ The VWO's own `log4j2.xml` has a few things not to copy:
 - Its root logger writes only to the file appender; the `CONSOLE` appender is declared and never used. Application logs are in `restapi.log` inside the container, which is why the CI pipeline of [chapter 22](build-22-shipping.md) tails that file. TechOlympiad also logs to the console, so `docker compose logs -f api` shows its lines.
 - `%highlight{...}` wraps the whole layout, the file's included, so `restapi.log` is full of ANSI colour codes. Ours colours the console only.
 - The file appender has two triggering policies for the same moment, a `CronTriggeringPolicy` at midnight and a `TimeBasedTriggeringPolicy` with a daily pattern. One is enough.
-- `LOCALHOST`, `MANAGER` and `HOST-MANAGER` copy Tomcat's own log files. The loggers they listen to belong to Tomcat, which logs through its own JULI framework, outside the web application's Log4j2, so these appenders stay empty.
+- `LOCALHOST`, `MANAGER` and `HOST-MANAGER` copy Tomcat's own log files. The loggers they listen to belong to Tomcat, which logs through its own JULI framework (Tomcat's variant of the JDK's
+built-in `java.util.logging`), outside the web application's Log4j2, so these appenders stay empty.
 
 ### `@Slf4j`
 

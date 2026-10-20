@@ -23,7 +23,8 @@ and the `WebSecurityConfigurerAdapter`. Two things change on purpose.
 Passwords are checked with bcrypt, where the VWO's HQL compares against
 `sha2(:password, 512)` and cannot match the bcrypt hashes production
 stores. And write endpoints get `@PreAuthorize("hasAuthority('ADMIN')")`,
-where the VWO enables method security but never uses it.
+where the VWO enables method security (permission checks on individual
+methods) but never uses it.
 
 **After this chapter you can:**
 
@@ -193,7 +194,8 @@ against the database. The VWO copied this design from a tutorial
 - The map is shared by all request threads. The VWO's `HashMap` is not safe for concurrent writes; TechOlympiad uses a `ConcurrentHashMap`.
 
 The VWO also has `InMemoryUsers`, a second implementation of the same
-interface, which is why `ApiUsers` needs `@Primary`. TechOlympiad has one
+interface, which is why `ApiUsers` needs `@Primary` (the annotation that
+marks which bean to inject when several match the type). TechOlympiad has one
 implementation and no `@Primary`.
 
 ### What is in a JWT
@@ -242,7 +244,7 @@ it works here only because `hibernate-core` brings `jaxb-api` along.
 The VWO's `JWTTokenService` also compresses the token with gzip and
 implements jjwt's `Clock` interface. TechOlympiad leaves out both.
 Compression makes a payload this small longer, and the `zip` header is a
-JWE feature that other JWT libraries refuse on a signed token. The
+JWE (JSON Web Encryption) feature that other JWT libraries refuse on a signed token. The
 custom `Clock` returns the same time as jjwt's default one.
 
 <div class="callout danger">
@@ -413,8 +415,8 @@ copied:
 
 The starter brings Spring Security 5.7.11. The moment it is on the
 classpath, Spring Boot protects every URL, so add the configuration of
-this chapter before you restart Tomcat. The VWO also depends on Guava,
-for `ImmutableMap` and an `AUTHORIZATION` constant; TechOlympiad uses
+this chapter before you restart Tomcat. The VWO also depends on Guava
+(Google's general Java utility library), for `ImmutableMap` and an `AUTHORIZATION` constant; TechOlympiad uses
 `Map.of` and Spring's `HttpHeaders.AUTHORIZATION` instead.
 
 ### The tables and the users
@@ -1339,7 +1341,7 @@ registration.setEnabled(false);                                                 
 3. No filters at all for the login, the Swagger UI (springdoc serves it under `/public/swagger-ui.html` and `/swagger-ui/...`) and the API documents. The VWO's list also has `/restapi/**`.
 4. No HTTP session is created or read; the token is the only state.
 5. Our filter sits right before the anonymous fallback.
-6. CSRF protection defends cookie-based sessions. A bearer header is never sent by a browser on its own, so there is nothing to defend.
+6. CSRF (cross-site request forgery: another site making the browser send a request with your cookies) protection defends cookie-based sessions. A bearer header is never sent by a browser on its own, so there is nothing to defend.
 7. `authenticationManager()` is the adapter's method that returns the manager from step 2.
 8. Every `Filter` bean is registered by Spring Boot as a servlet filter for all URLs. Without this, the token filter would also run outside Spring Security, in front of the login and the Swagger UI.
 

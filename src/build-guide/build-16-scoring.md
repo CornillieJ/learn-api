@@ -37,8 +37,8 @@ model for this chapter.
 **After this chapter you can:**
 
 - draw the transaction boundary of a request and say which DAO calls join it;
-- predict when `@Transactional` rolls back and when it commits, checked exceptions included;
-- write stream pipelines that filter, map and count;
+- predict when `@Transactional` rolls back and when it commits, <dfn data-def="An Exception that is not a RuntimeException. The compiler requires callers to catch it or declare it with throws; C# has no equivalent.">checked exceptions</dfn> included;
+- write stream pipelines (Java's counterpart of LINQ to Objects) that filter, map and count;
 - map a database view as an `@Immutable` entity.
 
 <div class="code-compare" data-code-compare data-labels="VWO KangoeroePoolsTemporaryAnswersRepositoryImpl|TechOlympiad ToScoringRepositoryImpl">
@@ -197,7 +197,8 @@ read everything before they write anything.
 exception (`RuntimeException` or `Error`). A
 <dfn data-def="An Exception that is not a RuntimeException. The compiler requires callers to catch it or declare it with throws; C# has no equivalent.">checked exception</dfn>
 such as `IOException` does **not** trigger a rollback by default: Spring
-commits whatever was done and then rethrows. That rule dates from EJB,
+commits whatever was done and then rethrows. That rule dates from EJB (Enterprise JavaBeans, the Java EE component
+model that came before Spring),
 where checked exceptions meant "a business outcome the caller should
 handle", not "the unit of work failed".
 
@@ -282,7 +283,8 @@ view looks like a `SELECT` on a table, as the VWO's
 `LeerlingTweedeRondeFull` does. `@Immutable` (from `org.hibernate.annotations`)
 tells Hibernate the entity is read-only: it never checks loaded
 instances for changes and never generates an `UPDATE`. That saves the
-dirty-checking work and, more importantly, prevents an accidental
+dirty-checking work (comparing each loaded entity with its original state
+to find changes, like EF Core's change tracker) and, more importantly, prevents an accidental
 setter call from turning into an `UPDATE` on a view that MariaDB could
 not perform anyway. The view's own key is the round 1 `PERSOON_ID`, so
 the entity inherits `ToParticipant` unchanged; the `@GeneratedValue` on

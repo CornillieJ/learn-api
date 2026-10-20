@@ -26,7 +26,7 @@ are not interchangeable.
 **After this chapter you can:**
 
 - compute the school year with `java.time` and default request fields to it;
-- accept a JSON body as a Java record and validate it with `@Valid` and `@NotNull`;
+- accept a JSON body as a Java record (an immutable data class, like a C# `record`) and validate it with `@Valid` and `@NotNull`;
 - explain why writes go through `toRW` and what happens if they do not;
 - choose between `save`, `persist`, `update`, `merge` and `saveOrUpdate`.
 
@@ -140,7 +140,8 @@ parameter's type. Spring asks its list of
 <dfn data-def="Spring MVC objects that read a request body into a Java object and write a return value into the response body. MappingJackson2HttpMessageConverter handles JSON.">HttpMessageConverters</dfn>
 for one that can read `application/json` into a `ParticipationInfo`;
 Jackson's converter wins. Jackson 2.12 and later construct a record
-through its canonical constructor, matching JSON fields to component
+through its canonical constructor (the generated constructor that takes
+every component in declaration order), matching JSON fields to component
 names, so the body is:
 
 ```json
@@ -258,7 +259,8 @@ for exactly that session. Mixing them fails in one of two ways:
   refused: `INSERT command denied to user 'to_read'@'...' for table 'Wedstrijdinfo_to'`.
 - A write in a method marked `@Transactional(value = transactionR, readOnly = true)`
   may not reach the database at all. Spring sets the Hibernate flush mode
-  of a read-only transaction to `MANUAL`, so changes to managed entities
+  (when the session sends pending changes to the database) of a read-only
+  transaction to `MANUAL`, so changes to managed entities
   are never flushed, and you get a `200` for a write that did not happen.
 
 The VWO keeps the rule simple: every method that writes carries
@@ -288,7 +290,7 @@ and with one that was loaded in an earlier session
 
 | Method | From | Transient object | Detached object | Returns |
 |---|---|---|---|---|
-| `save` | Hibernate | `INSERT` (at once for `IDENTITY` keys, else at flush) | treats it as new: a second row, or a duplicate-key error for assigned keys | the id |
+| `save` | Hibernate | `INSERT` (at once for `IDENTITY` keys, the ones the database generates with auto-increment; else at flush) | treats it as new: a second row, or a duplicate-key error for assigned keys | the id |
 | `persist` | JPA | `INSERT` at flush | generated key: `PersistentObjectException: detached entity passed to persist`; assigned key: Hibernate cannot tell, assumes new and inserts | nothing |
 | `update` | Hibernate | `TransientObjectException` if the id is `null` | attaches it; `UPDATE` at flush | nothing |
 | `merge` | JPA | copies it into a new managed object; `INSERT` | `SELECT`s the row, copies the fields onto the managed object; `UPDATE` if something changed | the **managed copy**, never the argument |
@@ -311,7 +313,8 @@ methods, like the VWO's `WedstrijdinfoVwoRepositoryImpl`:
 
 `saveOrUpdate` needs to know whether the object is new. For a generated
 key it looks at the id (`null` means new). For an assigned key without a
-version column it cannot tell, so it runs a `SELECT` on the key and
+version column (a JPA `@Version` field used for optimistic locking, like
+a concurrency token in EF Core) it cannot tell, so it runs a `SELECT` on the key and
 decides from the result:
 
 ```mermaid

@@ -13,9 +13,12 @@ Hibernate, wired the way the VWO API wires it: in a Spring XML file,
 `applicationContextAPI.xml`, imported into the Spring Boot application
 with one annotation. The XML declares two Hibernate session factories,
 one that logs in as `to_read` and one that logs in as `to_write`, and a
-transaction manager for each. A second file, `hibernate_TO.cfg.xml`,
-holds the Hibernate settings both factories share: the SQL dialect, the
-JDBC driver and the c3p0 connection pool.
+<dfn data-def="The Spring object that begins, commits and rolls back transactions for one resource, here one session factory. @Transactional methods use it.">transaction manager</dfn>
+for each. A second file, `hibernate_TO.cfg.xml`, holds the Hibernate
+settings both factories share: the SQL
+<dfn data-def="A Hibernate class that knows the SQL flavour of one database (its types, functions and paging syntax), so Hibernate generates SQL that database understands. Like the database provider choice in EF Core.">dialect</dfn>,
+the <dfn data-def="JDBC (Java Database Connectivity) is Java's standard low-level database API, roughly ADO.NET. The JDBC driver is the database-specific implementation of it, like an ADO.NET provider; Hibernate uses it underneath.">JDBC driver</dfn>
+and the <dfn data-def="c3p0 is an open-source JDBC connection pool library: it keeps database connections open and reuses them, like ADO.NET's built-in pooling.">c3p0</dfn> connection pool.
 
 No entity exists yet, so nothing is queried. The result of this chapter
 is a Tomcat log that shows two connection pools starting, and a MariaDB
@@ -333,9 +336,9 @@ minute.
 Some lines of `hibernate_VWO.cfg.xml` do not come along:
 
 - `hibernate.connection.pool_size` (25) configures the built-in pool. Once c3p0 is in use, nothing reads it.
-- `connection.autoReconnectForPools` and `connection.is-connection-validation-required` are options of an old MySQL driver. Neither is an option of MariaDB Connector/J 3, and c3p0's idle test already covers dropped connections.
+- `connection.autoReconnectForPools` and `connection.is-connection-validation-required` are options of an old MySQL driver. Neither is an option of MariaDB Connector/J 3 (MariaDB's JDBC driver, the `mariadb-java-client` artifact), and c3p0's idle test already covers dropped connections.
 - `hibernate.c3p0.max_statements_per_connection` is not one of the six translated names, so it reaches c3p0 as `c3p0.max_statements_per_connection`. c3p0's own name for that setting is `maxStatementsPerConnection`. We leave statement caching out.
-- `hibernate.jdbc.lob.non_contextual_creation` is about creating LOBs, which no TechOlympiad column needs.
+- `hibernate.jdbc.lob.non_contextual_creation` is about creating LOBs (large objects: `BLOB` and `CLOB` columns), which no TechOlympiad column needs.
 - The second-level cache properties return in [chapter 21](roadmap.md).
 - The commented-out connection block at the top of the VWO file still holds a real host, user and password. It is a good example of why credentials belong in the environment files: comments are committed too.
 
@@ -363,7 +366,8 @@ single matching bean but found 2`.
 `JpaTransactionManager` starts a transaction by opening a `Session` on
 its factory, beginning a JDBC transaction on it, and binding the session
 to the current thread. When the method returns, it flushes the session's
-changes, commits, and unbinds it. That binding is how
+changes (sends the pending `INSERT`s and `UPDATE`s as SQL, like
+`SaveChanges` without the commit), commits, and unbinds it. That binding is how
 `getCurrentSession()` finds "the current" session in chapter 10.
 
 ### Why two factories
@@ -410,6 +414,7 @@ find none, and stop the deployment with
 `Failed to configure a DataSource: 'url' attribute is not specified and
 no embedded datasource could be configured.` With it excluded, there is
 no `DataSource` bean at all, and Boot's Hibernate and Spring Data JPA
+(Spring's library that generates repository classes from interfaces)
 auto-configuration, which both need one, stay off too. Our two pools
 live inside the session factories, where Boot does not look.
 
@@ -417,7 +422,8 @@ live inside the session factories, where Boot does not look.
 <div class="callout-label">The older way, still in the VWO</div>
 
 `be.vwo.common.VWOQueryFactory` builds a `SessionFactory` in a static
-initialiser from the same `hibernate_VWO.cfg.xml`, outside Spring. Two
+initialiser (a `static { ... }` block that runs once when the class is
+loaded, like a C# static constructor) from the same `hibernate_VWO.cfg.xml`, outside Spring. Two
 old DAOs (`WachtwoordenDao`, `SchoolLidmaatschapDao`) still use it, which
 means the VWO runs a third pool once they are first called. Its twin
 `VWOQueryFactoryReadOnly` is used nowhere. TechOlympiad has neither.
@@ -619,7 +625,8 @@ versioned files such as `spring-beans-4.0.xsd`; Spring 5 maps every
 version to its current schema, so the unversioned names say what
 actually happens. Its `DeviceResolverHandlerInterceptor` bean (from the
 old Spring Mobile library) is declared but never added to Spring MVC's
-interceptor list, so it never runs. And the cache lines wait for
+interceptor list (code that runs around controller calls, like an MVC
+action filter), so it never runs. And the cache lines wait for
 chapter 21.
 
 ### The application class
@@ -665,7 +672,9 @@ Deployment of web application archive [/usr/local/tomcat/webapps/techolympiad.wa
 ```
 
 (Each line is prefixed with a timestamp and logger name; a few other
-`HHH` lines, such as the JTA platform, appear in between.) Now ask MariaDB
+`HHH` lines, such as the JTA platform (JTA is the Java Transaction API for
+distributed transactions, like `System.Transactions`; unused here), appear
+in between.) Now ask MariaDB
 who is connected:
 
 ```bash

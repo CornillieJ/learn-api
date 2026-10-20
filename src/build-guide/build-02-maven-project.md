@@ -18,15 +18,15 @@ it and no code of our own yet.
 The VWO `pom.xml` is over 600 lines long, but most of it is a list of
 dependencies, a few of them left over from older versions of the API. We
 start with the three dependencies a Spring web application on an external
-Tomcat needs, and the two build plugins the VWO configures by hand. Later
+Tomcat needs, and the two build <dfn data-def="Maven does no work itself: every build step (compiling, testing, zipping the WAR) is a goal of a plugin, like an MSBuild task.">plugins</dfn> the VWO configures by hand. Later
 chapters add to it whenever a feature needs a new library.
 
 **After this chapter you can:**
 
-- read a Maven coordinate and find that artifact in `~/.m2/repository`;
+- read a Maven coordinate and find that <dfn data-def="Any file Maven builds or downloads, such as a library jar, a WAR or a POM, identified by its coordinate. Roughly a NuGet package.">artifact</dfn> in `~/.m2/repository`;
 - say which lifecycle phases `mvn package` runs and which plugin does the work in each;
 - explain the `compile`, `provided`, `runtime` and `test` scopes, and why Tomcat and Lombok are `provided`;
-- read `mvn dependency:tree` and explain where each jar in the WAR comes from;
+- read `mvn dependency:tree` and explain where each <dfn data-def="Java archive: a zip of compiled .class files plus metadata, usually one library. Roughly a .NET assembly.">jar</dfn> in the WAR comes from;
 - list what is inside a WAR and what each part is for.
 
 <div class="code-compare" data-code-compare data-labels="VWO pom.xml|TechOlympiad pom.xml">
@@ -142,7 +142,10 @@ Chapter 22 comes back to it.
 
 ### No Spring Boot parent either
 
-A Spring Boot tutorial starts with `spring-boot-starter-parent` as the
+Spring Boot ships its libraries as *starters*: a starter such as
+`spring-boot-starter-web` contains no code of its own, only a list of
+dependencies that together give you one feature (here Spring MVC, Jackson
+and an embedded Tomcat). A Spring Boot tutorial starts with `spring-boot-starter-parent` as the
 parent POM. That parent pins the versions of a few hundred libraries and
 configures the Spring Boot Maven plugin. The VWO does not use it (its
 parent slot is taken), so every Spring Boot dependency in its `pom.xml`
@@ -221,7 +224,11 @@ pair: with `release`, using a method that only exists in Java 21 is a
 compile error even when you build on a Java 21 JDK.
 
 `-proc:full` switches annotation processing on explicitly. Annotation
-processors are compiler plugins found on the classpath; Lombok is one.
+processors are compiler plugins found on the classpath; Lombok is one. The
+<dfn data-def="The list of jars and folders the compiler or the JVM loads classes from, roughly the set of referenced assemblies of a .NET project.">classpath</dfn>
+is the list of jars and folders that `javac` or the JVM loads classes from,
+roughly the set of assemblies a .NET project references. Maven builds it
+from your dependencies.
 Newer JDKs no longer run processors they merely find on the classpath, so
 without this flag Lombok would silently stop generating getters on a
 future JDK. On Java 17 it changes nothing, which is exactly the point:
@@ -242,8 +249,8 @@ WAR?
 |---|---|---|---|---|---|
 | `compile` (default) | yes | yes | yes, in `WEB-INF/lib` | Spring, Jackson | a normal `PackageReference` |
 | `provided` | yes | yes | no | Tomcat, Lombok | a framework reference, or `PrivateAssets="all"` |
-| `runtime` | no | yes | yes | a JDBC driver you never import | `IncludeAssets="runtime"` |
-| `test` | no | yes | no | JUnit | a package only the test project references |
+| `runtime` | no | yes | yes | a <dfn data-def="JDBC (Java Database Connectivity) is Java's standard low-level database API of connections, statements and result sets, roughly ADO.NET. A JDBC driver is the database-specific implementation, like a .NET ADO.NET provider such as MySqlConnector.">JDBC driver</dfn> you never import | `IncludeAssets="runtime"` |
+| `test` | no | yes | no | JUnit (Java's xUnit) | a package only the test project references |
 | `import` | | | | a BOM, only inside `dependencyManagement` | importing `Directory.Packages.props` |
 
 </div>
@@ -251,7 +258,7 @@ WAR?
 `provided` means "I need it to compile, and something else will supply it
 at run time". Two dependencies earn it here, for different reasons:
 
-- **`spring-boot-starter-tomcat`**: Tomcat itself provides the servlet API
+- **`spring-boot-starter-tomcat`**: Tomcat itself provides the <dfn data-def="The standard Java API (javax.servlet) for handling HTTP requests: servlets, filters, request and response objects. Every Java web server implements it, and Spring MVC is built on it.">servlet API</dfn>
   and everything else the starter would bring. `spring-boot-starter-web`
   depends on this starter with `compile` scope, so without our own
   declaration a complete embedded Tomcat would land in `WEB-INF/lib`.
@@ -292,7 +299,7 @@ is a zip file with a layout fixed by the servlet specification:
 |---|---|---|
 | `WEB-INF/classes/` | `target/classes/` (compiled code and resources) | Your classes and config files, on the app's classpath |
 | `WEB-INF/lib/*.jar` | every `compile` and `runtime` dependency | The libraries, on the app's classpath |
-| `WEB-INF/web.xml` | `src/main/webapp/WEB-INF/web.xml` | The deployment descriptor; optional since Servlet 3.0 |
+| `WEB-INF/web.xml` | `src/main/webapp/WEB-INF/web.xml` | The deployment descriptor (an XML file that registers servlets and filters); optional since Servlet 3.0 |
 | everything else in `src/main/webapp/` | copied as is | Static files, served by Tomcat |
 | `META-INF/MANIFEST.MF`, `META-INF/maven/...` | the WAR plugin | Build metadata and a copy of the `pom.xml` |
 
@@ -312,7 +319,7 @@ the WAR:
 
 - **The eighteen `spring-*` dependencies at 5.3.39.** Replaced by the BOM above. Several (`spring-jms`, `spring-websocket`, `spring-oxm`) are not used by the API at all.
 - **`<sourceDirectory>src/main/java/</sourceDirectory>`.** That is the default.
-- **`maven-dependency-plugin` copying `javaee-endorsed-api` 7.0 into `target/endorsed`.** A leftover from the Java EE 7 era; nothing reads that folder.
+- **`maven-dependency-plugin` copying `javaee-endorsed-api` 7.0 into `target/endorsed`.** A leftover from the <dfn data-def="Java Enterprise Edition: a set of standard APIs for server applications (servlets, JPA, validation, ...) that servers such as Tomcat partly implement. Now called Jakarta EE.">Java EE</dfn> 7 era; nothing reads that folder.
 - **`spring-boot-maven-plugin` 2.7.18 with no executions.** Its `repackage` goal, which makes an executable WAR, is only bound by `spring-boot-starter-parent`. Without that parent the plugin does nothing during `mvn package`, which is why the VWO's `target/` has no `restAPI.war.original`.
 - **`javaee-api` 8.0.1 with `compile` scope.** It puts the Java EE 8 API jar into `WEB-INF/lib`; Tomcat provides the parts it implements.
 
@@ -439,7 +446,7 @@ The same file, annotated:
 3. Selects the `war:war` goal for the `package` phase and the WAR folder layout.
 4. Without it, the resources and compiler plugins use the platform encoding and warn that the build is platform dependent. The VWO sets it too.
 5. Pins every Spring Framework module to 5.3.39, also the ones the starters pull in.
-6. Spring MVC, Jackson, the Spring Boot core and auto-configuration, Logback, and (as `compile`) the Tomcat starter, which the next entry overrides.
+6. <dfn data-def="Spring's web framework for controllers and request mapping, the counterpart of ASP.NET Core MVC.">Spring MVC</dfn>, Jackson, the Spring Boot core and <dfn data-def="Spring Boot's habit of creating and configuring beans for you, based on the libraries it finds and your properties.">auto-configuration</dfn>, <dfn data-def="Spring Boot's default logging library.">Logback</dfn>, and (as `compile`) the Tomcat starter, which the next entry overrides.
 7. Our own declaration of the Tomcat starter is nearer than the one inside `spring-boot-starter-web`, so its scope wins and the embedded Tomcat stays out of the WAR.
 8. The WAR is called `techolympiadAPI.war` instead of `techolympiadAPI-0.1.0.war`.
 9. Annotation processing, and with it Lombok, stays on regardless of the JDK's default.

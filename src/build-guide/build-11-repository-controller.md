@@ -11,7 +11,7 @@
 The last chapter of Phase 2 connects the database to HTTP. Two pieces
 remain between a request and the DAO:
 
-- `ScholenRepository` / `ScholenRepositoryImpl`: the layer controllers talk to. It extends Spring Data's `Repository` marker interface, but its implementation is written by hand and simply delegates to `ScholenDao`.
+- `ScholenRepository` / `ScholenRepositoryImpl`: the layer controllers talk to. It extends the `Repository` marker interface (an interface with no methods, used only as a label) of <dfn data-def="Spring Data: a Spring library that can generate repository implementations from interface method names, such as findAll or findByName. The VWO uses only its interfaces and names, not the generation.">Spring Data</dfn>, but its implementation is written by hand and simply delegates to `ScholenDao`.
 - `SchoolController` / `v1/ScholenController`: an interface whose `default` methods hold the endpoints, and a thin class that gives them a URL and a repository.
 
 At the end of this chapter, the Swagger UI's `v1` group lists four
@@ -23,7 +23,7 @@ MariaDB, and a `POST` adds a fifth one through the `to_write` login.
 
 - explain why the VWO's repositories extend Spring Data's `Repository` yet are implemented by hand, and what `@NoRepositoryBean` prevents;
 - write endpoints as `default` methods in an interface and expose them from a versioned controller;
-- return `ResponseEntity` with the right status, and turn an `Optional` into a 200 or a 404;
+- return `ResponseEntity` (a body plus status and headers, like `ActionResult<T>`) with the right status, and turn an `Optional` (a box that holds a value or nothing) into a 200 or a 404;
 - predict a bean's name and avoid name clashes between controllers.
 
 <div class="code-compare" data-code-compare data-labels="VWO: v2/SchoolController.java|TechOlympiad: v1/ScholenController.java">
@@ -430,7 +430,9 @@ public class ScholenRepositoryImpl implements ScholenRepository {
 
 Two annotations named `Repository` meet in this package: Spring Data's
 interface `org.springframework.data.repository.Repository` and Spring's
-stereotype `org.springframework.stereotype.Repository`. Check the
+stereotype `org.springframework.stereotype.Repository` (Spring calls the
+role annotations `@Component`, `@Repository`, `@Service` and `@Controller`
+stereotypes). Check the
 imports: the interface file needs the first, the class the second.
 
 ### The controller interface

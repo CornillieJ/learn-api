@@ -18,7 +18,8 @@ it, together with `Persoon`, the person on the other end.
 `Functies` is the first table whose primary key has more than one column,
 and the first with an enum column. Both need new mapping tools:
 <dfn data-def="A JPA annotation that names a separate class holding the fields of a composite primary key. The entity keeps the key fields as ordinary @Id fields.">@IdClass</dfn>
-for the key, `@Enumerated` for the column, and a Spring
+for the key, `@Enumerated` (the JPA annotation that says how an enum is
+stored) for the column, and a Spring
 <dfn data-def="A Spring object that turns one type into another, here the text of a URL parameter into a Java enum. Registered as a bean, it is used for every @RequestParam and @PathVariable of that target type.">Converter</dfn>
 so that `?edition=jto` in a URL becomes `ToRole.JTO`. The chapter ends
 with an HQL query that joins `Scholen` to `Functies` without any mapped
@@ -85,7 +86,9 @@ public class Functies implements Serializable {
 </div>
 
 The VWO version also maps two lazy `@ManyToOne` associations to `Persoon`
-and `Scholen`. TechOlympiad leaves them out; the Deep Understanding tab
+and `Scholen`: fields that point at the related entity, like EF Core
+navigation properties, which Hibernate loads only when they are first
+read. TechOlympiad leaves them out; the Deep Understanding tab
 explains what they cost and why the queries in this chapter do not need
 them.
 
@@ -125,7 +128,7 @@ key class, because `Session.get(type, key)` takes one key object.
 
 | | `@IdClass(FunctiesPK.class)` | `@EmbeddedId FunctiesPK id` |
 |---|---|---|
-| Key fields live in | the entity, each with `@Id` | the key class, marked `@Embeddable` |
+| Key fields live in | the entity, each with `@Id` | the key class, marked `@Embeddable` (a class whose fields are stored in the owning entity's table, like an EF Core owned type) |
 | The key class | a plain holder with the same field names and types | holds the `@Column` mappings |
 | HQL | `f.persoonId` | `f.id.persoonId` |
 | JSON, by default | flat: `{"personId": 1, "schoolId": 2, ...}` | nested: `{"id": {...}}`, flattened only with `@JsonUnwrapped` |
@@ -302,7 +305,7 @@ the plain id fields.
 </div>
 
 <div class="sc-node" data-node="copy">
-<p class="sc-result">The VWO combines <code>@IdClass</code> with <code>@MapsId</code>, which JPA defines for derived identities on top of <code>@EmbeddedId</code>, and maps <code>PERSOON_ID</code> twice (once read-only on the id field, once through the join column). To make that consistent you would have to decide which mapping writes the column, set the association on every new <code>Functies</code>, and keep <code>@JsonIgnore</code> on both fields so Jackson does not touch a lazy proxy outside its session.</p>
+<p class="sc-result">The VWO combines <code>@IdClass</code> with <code>@MapsId</code>, which JPA defines for derived identities (a key that contains the key of a related entity) on top of <code>@EmbeddedId</code>, and maps <code>PERSOON_ID</code> twice (once read-only on the id field, once through the join column). To make that consistent you would have to decide which mapping writes the column, set the association on every new <code>Functies</code>, and keep <code>@JsonIgnore</code> on both fields so Jackson does not touch a lazy proxy outside its session.</p>
 <p class="sc-prompt">Is any query in this chapter easier with them?</p>
 <ul class="sc-choices">
 <li data-goto="copy-end">Check the queries</li>
@@ -1034,7 +1037,8 @@ public interface FunctionController {
 }
 ```
 
-`PersonFunction` is a Java record nested in the interface, as the VWO's
+`PersonFunction` is a Java record (a compact immutable data class, like a
+C# positional `record`) nested in the interface, as the VWO's
 `FunctionController.PersonFunction` is. Jackson 2.12 and later serialize
 records from their components, so it comes out as
 `{"user": {...}, "roles": [...]}`. The `DELETE` takes the key in a body,
