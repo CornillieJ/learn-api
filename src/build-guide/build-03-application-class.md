@@ -214,29 +214,43 @@ and widens the scan, and so do we.
 
 ### Auto-configuration
 
-<dfn data-def="Spring Boot configuration classes that register beans only when their conditions hold, for example when a class is on the classpath or no bean of that type exists yet.">Auto-configuration</dfn>
-is Spring Boot's set of ready-made `@Configuration` classes, listed in
+When a Spring Boot application starts, it does more than create your own
+beans. It also walks through a list of 144
+<dfn data-def="Spring Boot configuration classes that register beans only when their conditions hold, for example when a class is on the classpath or no bean of that type exists yet.">auto-configuration</dfn>
+classes that ship with Spring Boot. Each one is a recipe of the form
+"if this situation applies, register these beans for the developer". The
+list lives in a text file inside a Spring Boot jar,
 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
-inside `spring-boot-autoconfigure-2.7.18.jar`. Every one of them is
-guarded by conditions:
+in `spring-boot-autoconfigure-2.7.18.jar`, and the `@EnableAutoConfiguration`
+part of `@SpringBootApplication` is what tells Spring to read it.
+
+Each recipe checks its conditions first:
 
 - `@ConditionalOnClass(DispatcherServlet.class)`: only if Spring MVC is on the classpath;
 - `@ConditionalOnMissingBean(ObjectMapper.class)`: only if you did not define your own;
 - `@ConditionalOnProperty(...)`: only if a property has a certain value.
 
-So adding a jar can switch features on. The `--debug` flag prints the
-*conditions evaluation report*: each auto-configuration with the
-condition that matched or failed, then a list of exclusions. The drill
-runs it.
+The classpath condition is the important one: adding a jar to the pom can
+switch a feature on without a single line of code. In .NET terms, it is as
+if referencing the EF Core package made ASP.NET Core call `AddDbContext`
+for you, reading the connection string from a fixed place in
+`appsettings.json`.
+
+The `--debug` flag prints the *conditions evaluation report*: every
+recipe, whether its conditions matched, and at the end a list of
+exclusions. The drill runs it.
 
 ### Why `DataSourceAutoConfiguration` is excluded
 
-`DataSourceAutoConfiguration` creates a connection pool (`DataSource`)
-from the `spring.datasource.*` properties as soon as a JDBC pool library
-is on the classpath. The VWO has no such properties and wants no such
-pool. It builds two Hibernate session factories in its Spring XML, one
-logging in as the read-only database user and one as the read-write user,
-and each opens its own connections through Hibernate's c3p0 pool:
+One of those recipes is `DataSourceAutoConfiguration`. Its job: as soon as
+JDBC classes are on the classpath, create one database connection pool (a
+`DataSource` bean) from the `spring.datasource.url`, `username` and
+`password` properties.
+
+The VWO does not want that bean. It talks to the database in its own way,
+through two Hibernate session factories defined in its Spring XML: one
+that logs in as the read-only database user, one as the read-write user.
+Each opens its connections through Hibernate's own c3p0 pool:
 
 ```xml
 <bean id="vwoRW" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
@@ -248,17 +262,32 @@ and each opens its own connections through Hibernate's c3p0 pool:
             ...
 ```
 
-Once `spring-boot-starter-data-jpa` is on the classpath (chapter 8),
-the condition matches, Spring Boot looks for a URL, finds none, and the
-application stops with
-`Failed to configure a DataSource: 'url' attribute is not specified and no embedded datasource could be configured.`
-The exclusion prevents that. Without a `DataSource` bean, Spring Boot's
-JPA auto-configuration backs off as well, which leaves the session
-factories entirely to the XML.
+So there are no `spring.datasource.*` properties anywhere. If the recipe
+ran, this is what would happen at startup:
 
-Today, with no JDBC library on the classpath, the condition would fail
-anyway. We exclude it now so the class matches the VWO's from the first
-line, and so the `--debug` report shows the exclusion.
+1. `spring-boot-starter-data-jpa` (added in [chapter 8](build-08-hibernate-xml.md)) puts JDBC classes on the classpath, so the recipe's condition matches.
+2. The recipe looks for `spring.datasource.url` and finds nothing.
+3. It then looks for an in-memory database such as H2 to fall back on, and finds none either.
+4. Startup stops with `Failed to configure a DataSource: 'url' attribute is not specified and no embedded datasource could be configured.`
+
+The exclusion skips the recipe. It is written on the application class
+itself, as an argument of `@SpringBootApplication`:
+
+```java
+@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class}, scanBasePackages = "be.techolympiad.common")
+```
+
+`exclude` takes recipes off the list before Spring Boot evaluates them, so
+`DataSourceAutoConfiguration` never runs and no `DataSource` bean is made.
+Spring Boot's JPA recipe needs that bean, so it stays quiet too, and the
+database setup is left entirely to the XML. The
+`spring.autoconfigure.exclude` property does the same from a properties
+file; the VWO uses the annotation.
+
+In this chapter the exclusion changes nothing yet: there are no JDBC
+classes on the classpath, so the recipe's condition would fail on its
+own. We add it now so the class matches the VWO's from the first line,
+and so you can see it in the `--debug` report.
 
 ### `@PropertySource` and the Environment
 
