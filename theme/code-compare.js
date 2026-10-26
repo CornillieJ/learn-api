@@ -129,6 +129,22 @@
       });
     }
     select(setup.defaultIndex);
+    syncHorizontalScroll(panes.map(function (p) { return p.querySelector('pre > code'); }).filter(Boolean));
+  }
+
+  // Scrolling one pane sideways scrolls the others to the same offset.
+  function syncHorizontalScroll(scrollers) {
+    scrollers.forEach(function (el) {
+      el.addEventListener('scroll', function () {
+        // Ignore the echo of our own programmatic scroll (may be clamped on a narrower pane).
+        if (el.scrollLeft === el.ccEcho) { el.ccEcho = null; return; }
+        scrollers.forEach(function (other) {
+          if (other === el || other.scrollLeft === el.scrollLeft) return;
+          other.scrollLeft = el.scrollLeft;
+          other.ccEcho = other.scrollLeft;
+        });
+      }, { passive: true });
+    });
   }
 
   function wire() {

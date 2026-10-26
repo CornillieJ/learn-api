@@ -48,13 +48,14 @@
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  // Shown via CSS ::before (not text) so copying the block leaves the markers out.
   var MARK = { add: '+', del: '−', context: '' };
 
   function renderLines(lines, view) {
     return lines.map(function (l) {
       var cls = 'dv-line dv-' + l.type;
       if (view === 'diff' && l.type === 'context') cls += ' dv-dim';
-      return '<span class="' + cls + '"><span class="dv-mark" aria-hidden="true">' + (MARK[l.type] || '') + '</span>' + escapeHtml(l.text) + '\n</span>';
+      return '<span class="' + cls + '" data-mark="' + (MARK[l.type] || '') + '">' + escapeHtml(l.text) + '\n</span>';
     }).join('');
   }
 
